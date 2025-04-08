@@ -1,0 +1,49 @@
+BGC_MAC:
+  config_dir: "config"
+  log_dir: "logs/BGC_MAP"
+  checkpoint_dir: "ckpt/BGC_MAC"
+  device: "cpu"
+  epochs: 2
+  patience: 5
+  task: "classification"
+
+  data:
+    task: ${BGC_MAC.task}
+    use_structure: 0
+    structure_only: 0
+    random_seed: 43
+    train_bsz: 16
+    validation_bsz: 16
+    test_bsz: 16
+
+  GradNorm:
+    freeze: 0
+    lr: 5e-3
+
+  model_parameters:
+    esm_size: 1280
+    gearnet_size: 3072
+    num_classes: 6
+    attention_dim: 256
+    num_heads: 16
+    dropout: 0.35
+
+  optimizer:
+    type: Adam
+    lr: 2e-4
+    betas: [0.9, 0.98]
+    eps: 1e-9
+    weight_decay: 1e-4
+
+  scheduler:
+    type: StepLR
+    step_size: 1.0
+    gamma: 0.95
+
+  loss: BCEWithLogitsLoss
+  metrics:
+    threshold: 0.5
+
+  BCEWithLogitsLoss:
+    pos_weights: [1.5, 3.5, 2.0, 6.0, 2.5, 2.0]
+

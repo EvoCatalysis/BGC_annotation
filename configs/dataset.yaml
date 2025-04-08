@@ -1,0 +1,15 @@
+defaults:
+  - _self_
+  - BGC_MAC 
+  - BGC_MAP
+
+json_dir: data/mibig_json_4.0
+gbk_dir: data/mibig_gbk_4.0
+np_data_dir: data/natural_product
+BGC_data_dir: data/BGC_4.0
+MAP_metadata: data/BGC_4.0/MAP_metadata.pkl
+MAC_metadata: data/BGC_4.0/MAC_metadata.pkl
+ESM2_reps: data/BGC_4.0/Esm2_rep_mibig.pth
+pfam_data: data/BGC_4.0/BGC_domain_pfam.pkl
+gene_kind_data: data/BGC_4.0/BGC_gene_kind.pkl
+seed: 42

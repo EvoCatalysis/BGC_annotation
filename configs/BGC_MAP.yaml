@@ -1,0 +1,49 @@
+BGC_MAP:
+  config_dir: "config"
+  log_dir: "logs/BGC_MAP"
+  checkpoint_dir: "ckpt/BGC_MAP"
+  device: "cpu"
+  epochs: 2
+  patience: 5
+  task: "product_matching"
+
+  data: 
+    task: ${BGC_MAP.task}
+    use_structure: 0
+    structure_only: 0
+    random_seed: 42
+    train_bsz: 16
+    validation_bsz: 16
+    test_bsz: 16
+
+  model_parameters:
+    esm_size: 1280
+    gearnet_size: 3072
+    attention_dim: 1024
+    num_heads: 16
+    vocab_size: 138
+    dropout: 0.35
+
+  optimizer:
+    type: Adam
+    lr: 1.5e-5
+    betas: [0.9, 0.98]
+    eps: 1e-9
+    weight_decay: 1e-4
+
+  scheduler:
+    type: StepLR
+    step_size: 1.0
+    gamma: 0.95
+
+  loss: BCEWithLogitsLoss
+  metrics:
+    threshold: 0.5
+
+  BCEWithLogitsLoss:
+    pos_weights: 1.0
+  FocalLoss:
+    pos_weights: 0.65
+    gamma: 1
+
+
