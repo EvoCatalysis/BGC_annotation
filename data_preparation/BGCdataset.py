@@ -1,8 +1,4 @@
-import torch.nn as nn
 import torch
-from torch.nn.utils.rnn import pad_sequence
-from torch.utils.data import DataLoader
-import pandas as pd
 
 class BaseDataset(object):
     def __init__(self, BGCs, biosyn_class, pros, gene_kind, pfam, structure=None):
@@ -80,17 +76,3 @@ class MAPDataset(BaseDataset):
         sub = self.subs[idx]
         is_product = self.is_product[idx]
         return label, biosyn_class, pro, sub, is_product, length, structure, gene_kind, pfam
-
-
-def collate_fn(batch):
-    labels, biosyn_class, protein_reps, is_products, length, structure, class_token, gene_kind, pfam = zip(*batch)
-    protein_reps = [torch.stack(seq) for seq in protein_reps]
-    protein_reps_padded = pad_sequence(protein_reps,batch_first=True,padding_value=0)
-    protein_mask = (protein_reps_padded==0).any(dim=-1) #padding mask
-    biosyn_class = torch.stack(biosyn_class).float()
-    class_token = torch.stack(class_token)
-    structure_padded = None
-    if None not in structure:
-      structure = [torch.stack(struct) for struct in structure]
-      structure_padded = pad_sequence(structure,batch_first=True,padding_value=0)
-    return labels, biosyn_class, protein_reps_padded, is_products, length, protein_mask, structure_padded, class_token, gene_kind,pfam

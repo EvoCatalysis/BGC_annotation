@@ -1,12 +1,10 @@
 import torch
-import sys
 from torch.nn.utils.rnn import pad_sequence
 from sklearn.model_selection import KFold
 from torch.utils.data import DataLoader
 import pandas as pd
 import numpy as np
 from data_preparation.BGCdataset import MACDataset, MAPDataset
-import random
 
 class_dataloaders = { 'other': [],  'ribosomal': [], 'saccharide': [], 'terpene': []}
 
@@ -61,22 +59,44 @@ def MAC_collate_fn(batch):
     if None not in structure:
       structure = [torch.stack(struct) for struct in structure]
       structure_padded = pad_sequence(structure,batch_first=True,padding_value=0)
-    return labels, biosyn_class, protein_reps_padded, length, protein_mask, structure_padded, class_token, gene_kind,pfam
+    return {
+            "labels": labels,
+            "biosyn_class": biosyn_class,
+            "protein_reps_padded": protein_reps_padded,
+            "length": length,
+            "protein_mask": protein_mask,
+            "structure_padded": structure_padded,
+            "class_token": class_token,
+            "gene_kind": gene_kind,
+            "pfam": pfam
+            }
 
 def MAP_collate_fn(batch):
     vocab_size = 138
-    labels, biosyn_class, protein_reps, subs, is_products, length, structure, gene_kind, pfam = zip(*batch)
+    labels, biosyn_class, protein_reps, sub, is_product, length, structure, gene_kind, pfam = zip(*batch)
     protein_reps = [torch.stack(seq) for seq in protein_reps]
     protein_reps_padded=pad_sequence(protein_reps,batch_first=True,padding_value=0)
     protein_mask=(protein_reps_padded==0).any(dim=-1) #padding mask
-    subs_padded=pad_sequence(subs,batch_first=True, padding_value = vocab_size)
-    sub_mask=(subs_padded == vocab_size)
+    sub_padded=pad_sequence(sub,batch_first=True, padding_value = vocab_size)
+    sub_mask=(sub_padded == vocab_size)
     structure_padded = None
-    is_products = torch.tensor(is_products).float()
+    is_product = torch.tensor(is_product).float()
     if None not in structure:
       structure = [torch.stack(struct) for struct in structure]
       structure_padded = pad_sequence(structure, batch_first=True, padding_value=0)
-    return labels, biosyn_class, protein_reps_padded, subs_padded, is_products, length, protein_mask, sub_mask, structure_padded, gene_kind, pfam
+    return {
+      "labels": labels,                    
+      "biosyn_class": biosyn_class,        
+      "protein_reps_padded": protein_reps_padded,  
+      "sub_padded": sub_padded,         
+      "is_product": is_product,          
+      "length": length,                    
+      "protein_mask": protein_mask,       
+      "sub_mask": sub_mask,                
+      "structure_padded": structure_padded,   
+      "gene_kind": gene_kind,              
+      "pfam": pfam                         
+      }
 
 def generate_leave_out(BGC_data, biosyn_class, train_frac, config):
   collate_fn = MAP_collate_fn
@@ -88,10 +108,10 @@ def generate_leave_out(BGC_data, biosyn_class, train_frac, config):
   train_data = leave_out_data[:train_size]
   val_data = leave_out_data[train_size:]
 
-  test_dataset = MAPDataset.from_df(test_data, config.use_structure, config.use_unimol)
+  test_dataset = MAPDataset.from_df(test_data, config.use_structure)
   test_dataloader=DataLoader(test_dataset, batch_size = config.test_bsz, collate_fn=collate_fn)
-  train_dataset = MAPDataset.from_df(train_data, config.use_structure, config.use_unimol)
-  val_dataset = MAPDataset.from_df(val_data, config.use_structure, config.use_unimol)
+  train_dataset = MAPDataset.from_df(train_data, config.use_structure)
+  val_dataset = MAPDataset.from_df(val_data, config.use_structure)
   train_dataloader = DataLoader(train_dataset, batch_size = config.train_bsz, shuffle = True, collate_fn = collate_fn)
   val_dataloader = DataLoader(val_dataset, batch_size = config.validation_bsz, collate_fn = collate_fn)
   dataloaders=[test_dataloader,{

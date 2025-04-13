@@ -3,17 +3,17 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 import os
-from collections import Counter
 from tqdm import tqdm
 import datetime
 import yaml
 from torch.utils.tensorboard import SummaryWriter
 import logging
 from datetime import datetime
-from sklearn.metrics import roc_curve, roc_auc_score
+from sklearn.metrics import roc_auc_score
 import json
 import pytz
 import time
+import numpy as np
 from gradnorm_pytorch import GradNormLossWeighter
 from model.BGC_models import BGCClassifier, ProductMatching
 
@@ -59,7 +59,7 @@ def move_to_device(config_or_device, *args):
     
     return [arg.to(device) if isinstance(arg, torch.Tensor) else arg for arg in args]
 
-def accuracy_cal(true, pred, threshold):
+def accuracy_cal(true: torch.Tensor, pred: torch.Tensor, threshold: float) -> np.array:
   '''
   true: Tensor, (len(dataloader), num_classes)
   pred: Tnesor, (len(dataloader), num_classes)
@@ -69,9 +69,9 @@ def accuracy_cal(true, pred, threshold):
   pred_labels = (pred > threshold).float()
   correct_pred = torch.sum((true == pred_labels), dim=0)
   accuracy_per_class = correct_pred / data_size
-  return accuracy_per_class
+  return accuracy_per_class.cpu().numpy()
 
-def precision_cal(true, pred, threshold):
+def precision_cal(true:torch.Tensor, pred:torch.Tensor, threshold) -> np.array:
     '''
     true: Tensor, (len(dataloader), num_classes)
     pred: Tensor, (len(dataloader), num_classes)
@@ -81,9 +81,9 @@ def precision_cal(true, pred, threshold):
     false_positive = torch.sum((true == 0) & (pred_labels == 1), dim=0)
 
     precision_per_class = true_positive / (true_positive + false_positive + 1e-10)
-    return precision_per_class
+    return precision_per_class.cpu().numpy()
 
-def recall_cal(true, pred, threshold):
+def recall_cal(true:torch.Tensor, pred:torch.Tensor, threshold) -> np.array:
     '''
     true: Tensor, (len(dataloader), num_classes)
     pred: Tensor, (len(dataloader), num_classes)
@@ -93,36 +93,35 @@ def recall_cal(true, pred, threshold):
     false_negative = torch.sum((true == 1) & (pred_labels == 0), dim=0)
 
     recall_per_class = true_positive / (true_positive + false_negative + 1e-10)
-    return recall_per_class
+    return recall_per_class.cpu().numpy()
 
-def f1_cal(recall,precision,mode="micro"):
+def f1_cal(recall:np.array, precision:np.array, mode="micro") -> np.array:
     '''
-    recall: Tensor, (num_classes,)
-    precision: Tensor, (num_classes,)
+    recall: np.array, (num_classes,)
+    precision: np.array, (num_classes,)
     mode: str, either "micro" or "macro"
     return:
-      f1_score: Tensor (1,)
-      f1_per_class: Tensor (7,)
+      f1_score: np.array (1,)
+      f1_per_class: np.array (num_classes,)
     '''
     f1_per_class = 2 * (precision * recall) / (precision + recall + 1e-10)
     if mode == "micro":
-      precision_mean = torch.mean(precision)
-      recall_mean = torch.mean(recall)
+      precision_mean = np.mean(precision)
+      recall_mean = np.mean(recall)
       f1_score = 2 * precision_mean * recall_mean / (precision_mean + recall_mean + 1e-10)
     elif mode == "macro":
-      f1_score = torch.mean(f1_per_class)
+      f1_score = np.mean(f1_per_class)
     else:
       raise ValueError("Mode must be either 'micro' or 'macro'.")
-    return f1_score,f1_per_class
+    return f1_score, f1_per_class
 
-def auc_cal(true, pred, per_class=True):
+def auc_cal(true, pred, per_class=True) -> np.array:
     '''
     true: Tensor, (len(dataloader), num_classes)
     pred: Tensor, (len(dataloader), num_classes)
     per_class: bool
     return:
-      pre_class=True : Tensor
-      per_class=False : Float
+      auc: np.array
     '''
     true_np = true.detach().cpu().numpy()
     pred_np = pred.detach().cpu().numpy()
@@ -132,7 +131,7 @@ def auc_cal(true, pred, per_class=True):
         for i in range(true_np.shape[1]):
             auc = roc_auc_score(true_np[:, i], pred_np[:, i])
             auc_per_class.append(auc)
-        return torch.tensor(auc_per_class)
+        return np.array(auc_per_class)
     else:
         auc = roc_auc_score(true_np.ravel(), pred_np.ravel()) #flatten the numpy array
         return auc
@@ -213,13 +212,13 @@ class BaseTrainer:
         if 'accuracy' in self.metrics:
             accuracy_per_class = accuracy_cal(true, pred, self.threshold)
             metrics['accuracy_per_class'] = [accuracy_per_class]
-            metrics["overall_accuracy"] = [torch.mean(accuracy_per_class)]
+            metrics["overall_accuracy"] = [np.mean(accuracy_per_class)]
         if 'recall' in self.metrics:
             metrics['recall_per_class'] = [recall_per_class]
-            metrics["overall_recall"] = [torch.mean(recall_per_class)]
+            metrics["overall_recall"] = [np.mean(recall_per_class)]
         if 'precision' in self.metrics:
             metrics['precision_per_class'] = [precision_per_class]
-            metrics["overall_precision"] = [torch.mean(precision_per_class)]
+            metrics["overall_precision"] = [np.mean(precision_per_class)]
         if 'auc' in self.metrics:
             metrics['auc_per_class'] = [auc_cal(true, pred, per_class=True)]
             metrics['overall_auc'] = [auc_cal(true, pred, per_class=False)]
@@ -333,7 +332,12 @@ class MACTrainer(BaseTrainer):
 
         for batch in self.train_loader:  
             total_batch_train_loss = 0.0
-            label, biosyn_class, pro, length, pro_mask, structure, class_token, gene_kind, pfam = move_to_device(self.config, *batch)
+            biosyn_class, pro, pro_mask, structure, class_token = move_to_device(self.config, 
+                                                                                 batch["biosyn_class"], 
+                                                                                 batch["protein_reps_padded"], 
+                                                                                 batch["protein_mask"],
+                                                                                 batch["structure_padded"],
+                                                                                 batch["class_token"])
             output, cross_attn_weights = self.model(pro, class_token, pro_mask, structure)  # output: (batch_size, num_classes)
             self.optimizer.zero_grad()
 
@@ -374,7 +378,12 @@ class MACTrainer(BaseTrainer):
         val_loss_per_class = torch.zeros(6,device=self.device)
         with torch.no_grad():
             for batch in self.val_loader: # each batch
-                label, biosyn_class, pro, length, pro_mask, structure, class_token, gene_kind, pfam = move_to_device(self.config, *batch)
+                biosyn_class, pro, pro_mask, structure, class_token = move_to_device(self.config, 
+                                                                                     batch["biosyn_class"],
+                                                                                     batch["protein_reps_padded"],
+                                                                                     batch["protein_mask"],
+                                                                                     batch["structure_padded"],
+                                                                                     batch["class_token"])
                 output, cross_attn_weight = self.model(pro, class_token, pro_mask, structure) #output: (batch_size,num_classes)
                 true = torch.cat((true, biosyn_class),dim = 0)
                 pred = torch.cat((pred, output),dim = 0)
@@ -408,10 +417,16 @@ class MAPTrainer(BaseTrainer):
         total_samples = len(self.train_loader.dataset)
 
         for batch in self.train_loader:
-            labels, biosyn_class, pro, sub, is_product, length, pro_mask, sub_mask, structure, gene_kind, pfam = move_to_device(self.config, *batch)
+            pro, sub, is_product, pro_mask, sub_mask, structure = move_to_device(self.config, 
+                                                                                batch["protein_reps_padded"],
+                                                                                batch["sub_padded"],
+                                                                                batch["is_product"],
+                                                                                batch["protein_mask"],
+                                                                                batch["sub_mask"],
+                                                                                batch["structure_padded"])
             output, cross_attn = self.model(pro, sub, structure, pro_mask, sub_mask)
             self.optimizer.zero_grad()
-            output_flat = output.reshape(-1)  # 将任意张量展平为一维张量
+            output_flat = output.reshape(-1) 
             batch_train_loss = self.criterion(output_flat, is_product)
             batch_train_loss.backward()
             train_loss += batch_train_loss.item()
@@ -429,7 +444,13 @@ class MAPTrainer(BaseTrainer):
         
         with torch.no_grad():
             for batch in self.val_loader:
-                labels, biosyn_class, pro, sub, is_product, length, pro_mask, sub_mask, structure, gene_kind, pfam = move_to_device(self.config, *batch)
+                pro, sub, is_product, pro_mask, sub_mask, structure = move_to_device(self.config, 
+                                                                                batch["protein_reps_padded"],
+                                                                                batch["sub_padded"],
+                                                                                batch["is_product"],
+                                                                                batch["protein_mask"],
+                                                                                batch["sub_mask"],
+                                                                                batch["structure_padded"])
                 output, cross_attn = self.model(pro, sub, structure, pro_mask, sub_mask)
                 is_product = is_product.unsqueeze(-1)
                 true = torch.cat((true, is_product), dim=0)

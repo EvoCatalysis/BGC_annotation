@@ -1,13 +1,6 @@
-import os
 import numpy as np
-import glob
 import pandas as pd
-from rdkit import Chem
-from rdkit.Chem import AllChem
-from rdkit import DataStructs
 import numpy as np
-import torch
-import pickle
 from tqdm import tqdm
 from collections import Counter
 
@@ -25,7 +18,6 @@ def generate_negatives(lower:np.ndarray,
     Args:
         lower (numpy.ndarray): A numpy array of lower similarity thresholds (calculated per row).
                                Each element corresponds to a certain percentile of the similarity scores for a product. 
-                               即相似度矩阵 similarity_matrix 中每一行的第 x 百分位数的值(x由用户指定)。如第 99.9 百分位数表示比 99.9% 的数据更大或相等的值。
         higher (float): An upper similarity threshold. Products with similarity scores below this value are eligible.
         i (int): The number of negative examples to generate for each BGC number-positive product pair.
         similarity_matrix (numpy.ndarray): A 2D similarity matrix (shape: [n, n]) where each row represents
@@ -76,7 +68,7 @@ def generate_negatives(lower:np.ndarray,
             result.append(result_dict)
     return result
 
-def count_gene_kind(BGC_data:pd.DataFrame, verbose = 0)->list:
+def count_gene_kind(BGC_data:pd.DataFrame, verbose:int = 0)->list:
   """
   Analyzes the distribution of gene kinds across different biosynthetic gene cluster (BGC) classes.
   Args:

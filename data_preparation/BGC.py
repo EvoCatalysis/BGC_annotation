@@ -140,21 +140,6 @@ class Bgc:
                     enzyme_list.append(domains)
         return enzyme_list
     
-    def get_position_info(self):
-        position=[]
-        for enzymes in self.enzyme_list:
-            if not enzymes.domain or len(enzymes.domain)==1:
-                position.append([1,1])
-            else:
-                for i,domains in enumerate(enzymes.domain):
-                    if i==0:
-                        position.append([1,0])
-                    elif i==len(enzymes.domain)-1:
-                        position.append([0,1])
-                    else:
-                        position.append([0,0])
-        return position
-    
     def get_chem_acts(self):
         chem_act=[]
         for products in self.product:

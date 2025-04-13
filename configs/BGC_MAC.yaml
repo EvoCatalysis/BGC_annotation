@@ -3,7 +3,7 @@ BGC_MAC:
   log_dir: "logs/BGC_MAP"
   checkpoint_dir: "ckpt/BGC_MAC"
   device: "cpu"
-  epochs: 2
+  epochs: 30
   patience: 5
   task: "classification"
 

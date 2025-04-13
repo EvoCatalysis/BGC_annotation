@@ -1,21 +1,14 @@
-import os
 import torch
-import hydra
-import pandas as pd
-import argparse
 from pathlib import Path
 from torch.utils.data import DataLoader
 from typing import Union, List
 
-import numpy as np
-import numpy as np
-import pickle
 from tqdm import tqdm
 import os
 import pandas as pd
 import argparse
 import hydra
-from omegaconf import DictConfig
+import numpy as np
 
 from data_preparation.BGCdataset import MACDataset, MAPDataset
 from experiment.train import get_smiles_index
@@ -23,7 +16,6 @@ from experiment.dataloaders import MAC_collate_fn, MAP_collate_fn
 from data_preparation.BGC import Bgc
 from ensemble_utils import generate_ensemblelist, predict_MAC, predict_MAP
 from data_preparation.esm2_emb_cal import generate_embedding
-from data_preparation.esm2_emb_cal import Esm_BGC
 
 PROJECT_DIR = Path(__file__).resolve().parent.parent
 class_dict = { 'NRP': 0, 'Other': 1, 'Polyketdie': 2, 'RiPP': 3, 'Saccharide': 4, 'Terpene': 5}
@@ -55,17 +47,17 @@ def extract_bgc(gbk_file: List[str], smiles: Union[None, List[List[str]]] = None
 
 
 if __name__ == "__main__":
-    device = "cuda:2" if torch.cuda.is_available() else "cpu"
+    device = "cuda" if torch.cuda.is_available() else "cpu"
     parser = argparse.ArgumentParser(description="Process BGC and natural product data")
-    parser.add_argument("--model", default="MAC",
-                        help="Model type")
-    parser.add_argument("--ckpt", default="MAC_ckpt1",
-                        help="checkpoint dir name")
-    parser.add_argument("--gbk",
-                        help="gbk file")
-    parser.add_argument("--smiles", default=None,
-                        help="smiles string or pickle file")
+    parser.add_argument("--model", default="MAC", help="Model type")
+    parser.add_argument("--ckpt", default="default", help="checkpoint dir name")
+    parser.add_argument("--gbk", help="gbk file (dir or file name)")
+    parser.add_argument("--smiles", default=None, help="smiles string or pickle file")
+
     args = parser.parse_args()
+
+    if args.smiles is not None:
+        args.model = "MAP"
     with hydra.initialize(config_path=os.path.join("..", "configs"),
                           version_base="1.2"):
         cfg = hydra.compose(config_name="dataset", overrides=[f"BGC_{args.model}.device={device}"])
@@ -103,9 +95,10 @@ if __name__ == "__main__":
         checkpoint_path = os.path.join(PROJECT_DIR, model_cfg.checkpoint_dir, args.ckpt)
         predict_dataset = MACDataset.from_df(BGC_data, model_cfg.data.use_structure)
         predict_loader = DataLoader(predict_dataset, batch_size=model_cfg.data.test_bsz, collate_fn=MAC_collate_fn)
-        ensemble_model = generate_ensemblelist(checkpoint_path)
+        ckpt = torch.load(os.path.join(checkpoint_path, f"{args.ckpt}.ckpt"), weights_only=False)
+        ensemble_model = generate_ensemblelist(ckpt)
         prediction = predict_MAC(ensemble_model, predict_loader)
-        print(torch.mean(prediction[0],dim=0))
+        print(np.mean(prediction[0],axis=0))
 
     elif args.model == "MAP":
         BGC_data["protein_rep"] = BGC_data["BGC_number"].map(esm_rep)
@@ -115,6 +108,7 @@ if __name__ == "__main__":
         checkpoint_path = os.path.join(PROJECT_DIR, model_cfg.checkpoint_dir, args.ckpt)
         predict_dataset = MAPDataset.from_df(BGC_data, model_cfg.data.use_structure)
         predict_loader = DataLoader(predict_dataset, batch_size=model_cfg.data.test_bsz, collate_fn=MAP_collate_fn)
-        ensemble_model = generate_ensemblelist(checkpoint_path)
+        ckpt = torch.load(os.path.join(checkpoint_path, f"{args.ckpt}.ckpt"), weights_only=False)
+        ensemble_model = generate_ensemblelist(ckpt)
         prediction = predict_MAP(ensemble_model, predict_loader)
-        print(torch.mean(prediction[0], dim=0))
+        print(np.mean(prediction[0], axis=0))

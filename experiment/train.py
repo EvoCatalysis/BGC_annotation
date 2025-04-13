@@ -5,10 +5,10 @@ import torch
 from dataloaders import generate_kfold
 from ensemble_utils import kensemble_validation
 import hydra
-from omegaconf import DictConfig
 from pathlib import Path
 import re
 import argparse
+from datetime import datetime
 
 PROJECT_DIR = Path(__file__).resolve().parent.parent  # 链式调用 parent
 
@@ -78,12 +78,16 @@ def df_preprocess(cfg, task, *dfs):
 
 if __name__ == "__main__":
     device = "cuda:2" if torch.cuda.is_available() else "cpu"
-    parser = argparse.ArgumentParser(description="Process BGC and natural product data")
-    parser.add_argument("--model", default="MAC",
-                        help="Model type")
-    parser.add_argument("--ckpt", default="MAC_ckpt1",
-                        help="checkpoint dir name")
-    args = parser.parse_args()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model", default="MAC", help="Model type")
+    args, _ = parser.parse_known_args()  
+
+    parser.add_argument(
+        "--ckpt", 
+        default=f"{args.model}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}",
+        help="Checkpoint directory name"
+    )
+    args = parser.parse_args() 
 
     #Please change to a relative path (according to your current working directory)
     with hydra.initialize(config_path =  os.path.join("..", "configs"), 
@@ -105,5 +109,5 @@ if __name__ == "__main__":
     print("begin generating kfold")
     dataloaders, test_data, val_trues = generate_kfold(9, BGC_data, model_cfg.data)
     #test_data.to_pickle(os.path.join(PROJECT_DIR, model_cfg.checkpoint_dir, f"test_{model_cfg.data.task}_{model_cfg.data.random_seed}.pkl"))
-    ensemble_metric, ensemble_model, ensemble_pred = kensemble_validation(dataloaders, model_cfg, save_checkpoint = True, checkpoint_name = args.ckpt)
-    print(ensemble_metric)
+    ckpt = kensemble_validation(dataloaders, model_cfg, save_checkpoint = True, checkpoint_name = args.ckpt)
+    print(ckpt["best_val_metric"])

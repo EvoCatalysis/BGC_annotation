@@ -3,10 +3,14 @@ BGC_MAP:
   log_dir: "logs/BGC_MAP"
   checkpoint_dir: "ckpt/BGC_MAP"
   device: "cpu"
-  epochs: 2
+  epochs: 30
   patience: 5
   task: "product_matching"
-
+  
+  leave_out:
+    test_ratio: 0.85
+    metric_path: "ckpt/BGC_MAP/leave_out_metrics.pkl"
+    
   data: 
     task: ${BGC_MAP.task}
     use_structure: 0

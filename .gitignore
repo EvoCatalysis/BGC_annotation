@@ -22,6 +22,8 @@ envs/
 envs/
 logs/
 experiment/runs
+*.slurm
+visualization/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
