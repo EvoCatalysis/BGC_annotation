@@ -9,6 +9,8 @@ import pandas as pd
 import argparse
 import hydra
 import numpy as np
+import pickle
+from datetime import datetime
 
 from data_preparation.BGCdataset import MACDataset, MAPDataset
 from experiment.train import get_smiles_index
@@ -18,14 +20,18 @@ from ensemble_utils import generate_ensemblelist, predict_MAC, predict_MAP
 from data_preparation.esm2_emb_cal import generate_embedding
 
 PROJECT_DIR = Path(__file__).resolve().parent.parent
-class_dict = { 'NRP': 0, 'Other': 1, 'Polyketdie': 2, 'RiPP': 3, 'Saccharide': 4, 'Terpene': 5}
+biosyn_class =['NRP', 'Other', 'Polyketdie', 'RiPP', 'Saccharide', 'Terpene']
 
-def list_files(directory): 
+def list_files(directory, ext = None): 
     file_paths = []  
     for root, dirs, files in os.walk(directory):
         for file in files:
             file_path = os.path.abspath(os.path.join(root, file))
-            file_paths.append(file_path)
+            if ext is not None:
+                if ext in file_path:
+                    file_paths.append(file_path)
+            else:
+                file_paths.append(file_path)
     return file_paths
 
 
@@ -53,7 +59,7 @@ if __name__ == "__main__":
     parser.add_argument("--ckpt", default="default", help="checkpoint dir name")
     parser.add_argument("--gbk", help="gbk file (dir or file name)")
     parser.add_argument("--smiles", default=None, help="smiles string or pickle file")
-
+    parser.add_argument("--output", default="../output", help="output dir")
     args = parser.parse_args()
 
     if args.smiles is not None:
@@ -62,19 +68,14 @@ if __name__ == "__main__":
                           version_base="1.2"):
         cfg = hydra.compose(config_name="dataset", overrides=[f"BGC_{args.model}.device={device}"])
 
-    #gbk_file = list_files(os.path.join(PROJECT_DIR, "data","example", "new"))
-    #smiles = [["CC1C[C@]23OC(=O)C4=C2OC1C(O)C3\C=C/C(=O)[C@@H](C)C[C@@H](C)C4=O", "CC1CC23OC(=O)C4=C2OC1C(O)C3\C=C/C(=O)C(C)CC(C)C4=O"],
-            #["CCCC(O[C@H]1C[C@](C)(N)[C@H](O)[C@H](C)O1)C(C)C(O)C(CC)\C=C\C(O)C(C)C1C\C=C(C)\C(O)C(C)C(CC(O)C(C)C(O)CC2CC(O)C(O)C(O)(CC(O[C@@H]3O[C@H](C)[C@@H](O)[C@H](O[C@H]4C[C@@H](N)[C@H](O)[C@@H](C)O4)[C@H]3O[C@@H]3O[C@H](C)[C@@H](O)[C@H](O)[C@H]3O)C(C)CCC(O)CC(O)C\C=C(CC)\C(=O)O1)O2)O[C@@H]1O[C@H](CO)[C@@H](O)[C@H](O)[C@@H]1O"]]
-    
-    #gbk_file = gbk_file[0]
     if os.path.isfile(args.gbk):
         gbk_file = [args.gbk]
     else:
-        gbk_file = list_files(args.gbk)
-    if type(args.smiles) is str:
-        smiles = [[args.smiles]]
+        gbk_file = list_files(args.gbk, ext = "gbk")
+    if os.path.isfile(args.smiles):
+        smiles = pickle.load(open(args.smiles, "rb"))
     else:
-        smiles = args.smiles
+        smiles = [[args.smiles]]
 
     BGC_data = extract_bgc(gbk_file, smiles)
     BGC_number_deduplicate = (
@@ -98,7 +99,15 @@ if __name__ == "__main__":
         ckpt = torch.load(os.path.join(checkpoint_path, f"{args.ckpt}.ckpt"), weights_only=False)
         ensemble_model = generate_ensemblelist(ckpt)
         prediction = predict_MAC(ensemble_model, predict_loader)
-        print(np.mean(prediction[0],axis=0))
+        output_data = np.mean(prediction[0],axis=0) #(num_gbk, 6)
+
+        df = pd.DataFrame(output_data, 
+                 index=gbk_file, 
+                 columns=biosyn_class).round(2)
+        os.makedirs(args.output, exist_ok  =True)
+        output_path = os.path.join(args.output, f"{args.model}_{datetime.now().strftime('%Y-%m-%d_%H-%M')}.csv")
+        df.to_csv(output_path, index=True)
+        print(f"save output to: {output_path}")
 
     elif args.model == "MAP":
         BGC_data["protein_rep"] = BGC_data["BGC_number"].map(esm_rep)
@@ -111,4 +120,15 @@ if __name__ == "__main__":
         ckpt = torch.load(os.path.join(checkpoint_path, f"{args.ckpt}.ckpt"), weights_only=False)
         ensemble_model = generate_ensemblelist(ckpt)
         prediction = predict_MAP(ensemble_model, predict_loader)
-        print(np.mean(prediction[0], axis=0))
+        output_data = np.squeeze(np.mean(prediction[0], axis=0))
+        flat_gbk = [gbk for i, gbk in enumerate(gbk_file) for _ in smiles[i]] 
+        flat_smiles = [item for sublist in smiles for item in sublist]
+        df = pd.DataFrame({
+        'Gbk_file': flat_gbk,  
+        'Prospective Product': flat_smiles,  
+        'Probability': output_data 
+        })
+        os.makedirs(args.output, exist_ok  =True)
+        output_path = os.path.join(args.output, f"{args.model}_{datetime.now().strftime('%Y-%m-%d_%H-%M')}.csv")
+        df.to_csv(output_path, index=True)
+        print(f"save output to: {os.path.abspath(output_path)}")
