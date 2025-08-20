@@ -73,8 +73,6 @@ if __name__ == "__main__":
 
     Esm2_model_path=os.path.join(PROJECT_DIR, "data","esm2_t33_650M_UR50D.pt")
     BGC_data=pd.read_pickle(os.path.join(PROJECT_DIR, cfg.MAC_metadata))
-    #BGC_data=pd.read_pickle(os.path.join(PROJECT_DIR,"data", "toydata.pkl"))
     result = generate_embedding(BGC_data, Esm2_model_path)
-    #torch.save(result, os.path.join(PROJECT_DIR,"data", "toydata_esm.pth"))
-    #torch.save(result,os.path.join(PROJECT_DIR, cfg.ESM2_reps))
+    torch.save(result,os.path.join(PROJECT_DIR, cfg.ESM2_reps))
 

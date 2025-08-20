@@ -18,7 +18,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process BGC and natural product data")
     parser.add_argument("--model", default="MAC",
                         help="Model type")
-    parser.add_argument("--ckpt", 
+    parser.add_argument("--ckpt", default = None,
                         help="checkpoint dir name")
     parser.add_argument("--mean_result", action="store_true",
                     help="mean the result of ensemble models")
@@ -31,24 +31,27 @@ if __name__ == "__main__":
     if args.model == "MAC":
         model_cfg = cfg.BGC_MAC
         checkpoint_path = os.path.join(PROJECT_DIR, model_cfg.checkpoint_dir, args.ckpt)
+        # test_MAC_metadata_43.pkl
         test_data = pd.read_pickle(os.path.join(PROJECT_DIR, model_cfg.checkpoint_dir, f"test_{test_name}_{model_cfg.data.random_seed}.pkl"))
         test_dataset = MACDataset.from_df(test_data, model_cfg.data.use_structure)
         test_loader = DataLoader(test_dataset, batch_size=model_cfg.data.test_bsz, collate_fn=partial(MAC_collate_fn, is_training = False))
         ckpt = torch.load(os.path.join(checkpoint_path, f"{args.ckpt}.ckpt"), weights_only=False)
+        print(f"load ckpt from {os.path.join(checkpoint_path, f"{args.ckpt}.ckpt")}")
         ensemble_model = generate_ensemblelist(ckpt)
         test_results = kensemble_MACtest(ensemble_model, test_loader, checkpoint_path, mean_result = args.mean_result)
         print(test_results["metrics"])
     elif args.model == "MAP":
         model_cfg = cfg.BGC_MAP
         checkpoint_path = os.path.join(PROJECT_DIR, model_cfg.checkpoint_dir, args.ckpt)
-        print("checkpoint path", checkpoint_path)
         test_data = pd.read_pickle(os.path.join(PROJECT_DIR, model_cfg.checkpoint_dir, f"test_{test_name}_{model_cfg.data.random_seed}.pkl"))
         test_dataset = MAPDataset.from_df(test_data, model_cfg.data.use_structure)
         # shuffle is false by default
         test_loader = DataLoader(test_dataset,
                                   batch_size=model_cfg.data.test_bsz, 
                                   collate_fn=partial(MAP_collate_fn, is_training = False))
+        # test_MAP_metadata_42.pkl
         ckpt = torch.load(os.path.join(checkpoint_path, f"{args.ckpt}.ckpt"), weights_only=False)
+        print(f"load ckpt from {os.path.join(checkpoint_path, f"{args.ckpt}.ckpt")}")
         ensemble_model = generate_ensemblelist(ckpt)
         test_results = kensemble_MAPtest(models = ensemble_model, 
                                          test_loader = test_loader, 

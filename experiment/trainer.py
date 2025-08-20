@@ -1,11 +1,9 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.autograd import Variable
 import os
 from tqdm import tqdm
 import datetime
-import yaml
 from torch.utils.tensorboard import SummaryWriter
 import logging
 from datetime import datetime

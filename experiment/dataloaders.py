@@ -41,8 +41,13 @@ def generate_kfold(k, data, config):
        val_trues.append(torch.Tensor(val_data[val_trues_column].to_list()))
     train_dataset = dataset.from_df(train_data, config.use_structure)
     val_dataset = dataset.from_df(val_data, config.use_structure)
-    train_dataloader = DataLoader(train_dataset, batch_size = config.train_bsz, shuffle = True, collate_fn = partial(collate_fn, is_training = config.random_batch))
-    val_dataloader = DataLoader(val_dataset, batch_size = config.validation_bsz, collate_fn = partial(collate_fn, is_training = False))
+    train_dataloader = DataLoader(train_dataset, 
+                                  batch_size = config.train_bsz, 
+                                  shuffle = True, 
+                                  collate_fn = partial(collate_fn, is_training = config.random_batch))
+    val_dataloader = DataLoader(val_dataset, 
+                                batch_size = config.validation_bsz, 
+                                collate_fn = partial(collate_fn, is_training = False))
 
     dataloaders.append({
         'train': train_dataloader,

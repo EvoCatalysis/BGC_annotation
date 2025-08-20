@@ -11,7 +11,6 @@ import pandas as pd
 import random
 import argparse
 import hydra
-from omegaconf import DictConfig
 import re
 from pathlib import Path
 from BGC import Bgc
@@ -76,15 +75,27 @@ def extract_bgc_mac_dataset(json_dir: str, gbk_dir: str, output_dir: str) -> pd.
     key=lambda x: int(re.search(r"BGC(\d+)", x).group(1)) if re.search(r"BGC(\d+)", x) else 0
     )
 
-    # Process BGC data
+    # Process BGC data 
     columns = ["BGC_number", "product", "biosyn_class", "enzyme_list", "is_product"]
     BGC_data = pd.DataFrame(columns=columns)
+    BGC_gene_kind = {}
     for gbk_file, json_file in tqdm(zip(gbk_paths, filtered_json_paths), desc="Processing BGC files"):
         assert os.path.splitext(os.path.basename(gbk_file))[0] == os.path.splitext(os.path.basename(json_file))[0], "BGC number doesn't match!"
         mibig_BGC = Bgc(gbk_file, json_file)  
         bgc_info = mibig_BGC.get_info()
         for info in bgc_info:
             BGC_data.loc[len(BGC_data)] = info
+
+        # extract gene_kind
+        try:
+            mibig_BGC=Bgc(gbk_file,json_file)
+            BGC_gene_kind[mibig_BGC.bgc_number]=mibig_BGC.get_gene_kind()
+        except Exception as e:
+            print(gbk_file,{e})
+    
+    with open(os.path.join(PROJECT_DIR,"data","BGC_4.0","BGC_gene_kind.pkl"), 'wb') as f:
+        pickle.dump(BGC_gene_kind, f)
+
 
     # Filter out specific BGC
     BGC_data = BGC_data[BGC_data["BGC_number"] != "BGC0002977"].reset_index(drop=True)

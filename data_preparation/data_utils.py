@@ -127,7 +127,7 @@ def count_pfam(BGC_data:pd.DataFrame, verbose=0)->list:
   """
   result=[[] for _ in range(6)]
   for row in BGC_data.itertuples(index=True):
-    indices = (row.biosyn_class == 1).nonzero(as_tuple=True)[0] #选中对应类别的index编号。
+    indices = (row.biosyn_class == 1).nonzero(as_tuple=True)[0]
     for idx in indices:
         pfam=[item for element in row.pfam for item in (element if isinstance(element, tuple) else (element,))]
         result[idx].extend(pfam)

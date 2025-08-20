@@ -4,12 +4,8 @@ channels:
   - https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/bioconda
   - https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main
   - https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge
-  - https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/bioconda/
-  - https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge/
-  - https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main/
-  - https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/free/
-  - conda-forge
   - bioconda
+  - conda-forge
   - https://repo.anaconda.com/pkgs/main
   - https://repo.anaconda.com/pkgs/r
 dependencies:
@@ -25,9 +21,9 @@ dependencies:
   - brotli-bin=1.1.0=hb9d3cd8_2
   - bzip2=1.0.8=h4bc722e_7
   - c-ares=1.34.4=hb9d3cd8_0
-  - ca-certificates=2025.1.31=hbcca054_0
+  - ca-certificates=2025.8.3=hbd8a1cb_0
   - cairo=1.18.4=h3394656_0
-  - certifi=2025.1.31=pyhd8ed1ab_0
+  - certifi=2025.8.3=pyhd8ed1ab_0
   - chardet=5.2.0=pyhd8ed1ab_3
   - colorama=0.4.6=pyhd8ed1ab_1
   - colorlog=6.9.0=pyh707e725_1
@@ -46,6 +42,7 @@ dependencies:
   - cycler=0.12.1=pyhd8ed1ab_1
   - cyrus-sasl=2.1.27=h54b06d7_7
   - decorator=5.2.1=pyhd8ed1ab_0
+  - et_xmlfile=2.0.0=pyhd8ed1ab_1
   - exceptiongroup=1.2.2=pyhd8ed1ab_1
   - executing=2.1.0=pyhd8ed1ab_1
   - filelock=3.18.0=pyhd8ed1ab_0
@@ -152,11 +149,13 @@ dependencies:
   - opencl-headers=2024.10.24=h5888daf_0
   - openjpeg=2.5.3=h5fbd93e_0
   - openldap=2.6.9=he970967_0
-  - openssl=3.4.1=h7b32b05_0
+  - openpyxl=3.1.5=py311h50c5138_1
+  - openssl=3.5.2=h26f9b46_0
   - optuna=4.2.1=pyhd8ed1ab_0
   - packaging=24.2=pyhd8ed1ab_2
   - pandas=2.2.3=py311h7db5c69_1
   - parso=0.8.4=pyhd8ed1ab_1
+  - patsy=1.0.1=pyhd8ed1ab_1
   - pcre2=10.44=hba22ea6_2
   - pexpect=4.9.0=pyhd8ed1ab_1
   - pickleshare=0.7.5=pyhd8ed1ab_1004
@@ -171,6 +170,7 @@ dependencies:
   - pure_eval=0.2.3=pyhd8ed1ab_1
   - pycairo=1.27.0=py311h124c5f0_0
   - pygments=2.19.1=pyhd8ed1ab_0
+  - pyhmmer=0.11.1=py311haab0aaa_2
   - pyparsing=3.2.3=pyhd8ed1ab_1
   - python=3.11.11=h9e4cc4f_2_cpython
   - python-dateutil=2.9.0.post0=pyhff2d567_1
@@ -190,11 +190,14 @@ dependencies:
   - rlpycairo=0.2.0=pyhd8ed1ab_0
   - scikit-learn=1.6.1=py311h57cc02b_0
   - scipy=1.15.2=py311h8f841c2_0
+  - seaborn=0.13.2=hd8ed1ab_3
+  - seaborn-base=0.13.2=pyhd8ed1ab_3
   - setuptools=75.8.2=pyhff2d567_0
   - six=1.17.0=pyhd8ed1ab_0
   - sqlalchemy=2.0.40=py311h9ecbd09_0
   - stack_data=0.6.3=pyhd8ed1ab_1
-  - tensorboard=2.19.0=pyhd8ed1ab_0
+  - statsmodels=0.14.4=py311h9f3472d_0
+  - tensorboard=2.20.0=pyhe01879c_0
   - tensorboard-data-server=0.7.0=py311hafd3f86_2
   - threadpoolctl=3.6.0=pyhecae5ae_0
   - tk=8.6.13=noxft_h4845f30_101
@@ -231,11 +234,9 @@ dependencies:
       - gradnorm-pytorch==0.0.26
       - huggingface-hub==0.30.1
       - idna==3.10
-      - natural-product==0.1
       - psutil==7.0.0
       - requests==2.32.3
       - rotary-embedding-torch==0.8.6
       - safetensors==0.5.3
       - sympy==1.13.1
       - urllib3==2.3.0
-prefix: /home/kchlu/link_name/miniconda3/envs/natural_product

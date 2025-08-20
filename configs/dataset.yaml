@@ -12,6 +12,7 @@ MAC_metadata: data/BGC_4.0/MAC_metadata.pkl
 ESM2_reps: data/BGC_4.0/Esm2_rep_mibig.pth
 pfam_data: data/BGC_4.0/BGC_domain_pfam.pkl
 gene_kind_data: data/BGC_4.0/BGC_gene_kind.pkl
+pfam_file: data/Pfam-A.hmm
 seed: 42
 
 inference:
