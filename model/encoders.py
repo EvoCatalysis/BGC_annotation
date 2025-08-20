@@ -112,16 +112,20 @@ class BGCEncoder(nn.Module):
         structure:(batch_size,sequence_length,3072)
         mask: (batch,sequence_length). the mask of padded enzymes in a BGC
         '''
-        pros = self.activation(self.esm_projection(pros)) # (batch_size, sequence_length, esm_size = 1280)->(batch_size, sequence_length, attention_dim)
+
+        # (batch_size, sequence_length, esm_size = 1280)->(batch_size, sequence_length, attention_dim)
+        pros = self.activation(self.esm_projection(pros)) * ~mask[..., None] 
         if structure is not None:
           structure = self.activation(self.gearnet_projection(structure)) # (batch_size, sequence_length, gearnet_size = 3072)->(batch_size, sequence_length, attention_dim)
+        
         self_attn_output, _ = self.self_attention(pros, pros, pros, structure, key_padding_mask = mask) #mask:（batch,seqlen）
+        self_attn_output * ~mask[..., None]
         self_attn_output = self.norm1(self_attn_output + pros) #self_attn_out: (batch_size, sequence_length, attention_dim)
         residue = self_attn_output
-        self_attn_output = self.feedforward(self_attn_output)
-        self_attn_output = self.norm2(self_attn_output+residue)
+        self_attn_output = self.feedforward(self_attn_output) 
+        self_attn_output = self.norm2(self_attn_output+residue) 
 
-        return self_attn_output
+        return self_attn_output * ~mask[..., None]
 
 class SmilesEncoder(nn.Module):
     def __init__(self, 
@@ -131,14 +135,14 @@ class SmilesEncoder(nn.Module):
                  activation = nn.GELU(),
                  dropout=0.3):
         super(SmilesEncoder, self).__init__()
-        self.embedding = nn.Embedding(vocab_size+1, attention_dim, padding_idx = vocab_size) #[batch,seqlen]->[batch,seqlen,embed_size]
-        self.activation=nn.GELU()
+        self.embedding = nn.Embedding(vocab_size+1, attention_dim, padding_idx = vocab_size) 
+        self.activation=activation
         self.feedforward = FeedForward(attention_dim, attention_dim*2, self.activation, dropout)
         self.norm1 = nn.LayerNorm(attention_dim)
         self.norm2 = nn.LayerNorm(attention_dim)
 
         self.alpha = torch.zeros(1, device=next(self.parameters()).device)
-        self.self_attention = MultiheadAttentionWithROPE(attention_dim, num_heads, dropout=dropout,batch_first=True) #[batch,seqlen,embed_size]->[batch,seqlen,embed_size]
+        self.self_attention = MultiheadAttentionWithROPE(attention_dim, num_heads, dropout=dropout, batch_first=True) 
 
     def forward(self, subs, mask=None):
         # Self-Attention on pros
@@ -146,9 +150,10 @@ class SmilesEncoder(nn.Module):
 
         # Self-Attention on subs
         self_attn_output, _ = self.self_attention(subs_embedded, subs_embedded, subs_embedded, key_padding_mask=mask)
+        self_attn_output * ~mask[..., None]
         self_attn_output = self.norm1(self_attn_output + subs_embedded)
         residue = self_attn_output
         self_attn_output = self.feedforward(self_attn_output)
         self_attn_output = self.norm2(self_attn_output+residue)
 
-        return self_attn_output
+        return self_attn_output * ~mask[..., None]

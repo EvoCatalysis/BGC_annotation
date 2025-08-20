@@ -56,7 +56,7 @@ def generate_embedding(df, esm_ckpt):
         for labels, strs, toks in tqdm(dataloader,desc="batch"):
             if torch.cuda.is_available():
                 toks = toks.to(device="cuda", non_blocking=True)
-                toks=toks[:,:1022]
+                toks = toks[:,:1022]
             out=model(toks,repr_layers=[33],return_contacts=False)
             representations = {layer: t.to(device="cpu") for layer, t in out["representations"].items()}
             for i,label in enumerate(labels): #len(labels)=batch_size

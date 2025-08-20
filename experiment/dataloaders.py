@@ -5,6 +5,8 @@ from torch.utils.data import DataLoader
 import pandas as pd
 import numpy as np
 from data_preparation.BGCdataset import MACDataset, MAPDataset
+import random
+from functools import partial
 
 class_dataloaders = { 'other': [],  'ribosomal': [], 'saccharide': [], 'terpene': []}
 
@@ -27,7 +29,7 @@ def generate_kfold(k, data, config):
   train_val_data = pd.concat(train_val_folds, ignore_index=True)
   kf = KFold(n_splits=k, shuffle=True, random_state = config.random_seed)
   test_dataset = dataset.from_df(test_fold, config.use_structure)
-  test_dataloader = DataLoader(test_dataset,batch_size = config.test_bsz,collate_fn=collate_fn)
+  test_dataloader = DataLoader(test_dataset,batch_size = config.test_bsz,collate_fn=partial(collate_fn, is_training = False))
 
   dataloaders = [test_dataloader]
   for train_index, val_index in kf.split(train_val_data):
@@ -39,8 +41,8 @@ def generate_kfold(k, data, config):
        val_trues.append(torch.Tensor(val_data[val_trues_column].to_list()))
     train_dataset = dataset.from_df(train_data, config.use_structure)
     val_dataset = dataset.from_df(val_data, config.use_structure)
-    train_dataloader = DataLoader(train_dataset, batch_size = config.train_bsz, shuffle = True, collate_fn = collate_fn)
-    val_dataloader = DataLoader(val_dataset, batch_size = config.validation_bsz, collate_fn = collate_fn)
+    train_dataloader = DataLoader(train_dataset, batch_size = config.train_bsz, shuffle = True, collate_fn = partial(collate_fn, is_training = config.random_batch))
+    val_dataloader = DataLoader(val_dataset, batch_size = config.validation_bsz, collate_fn = partial(collate_fn, is_training = False))
 
     dataloaders.append({
         'train': train_dataloader,
@@ -48,7 +50,7 @@ def generate_kfold(k, data, config):
     })
   return dataloaders, test_fold, val_trues
 
-def MAC_collate_fn(batch):
+def MAC_collate_fn(batch, is_training = None):
     labels, biosyn_class, protein_reps, length, structure, class_token, gene_kind, pfam = zip(*batch)
     protein_reps = [torch.stack(seq) for seq in protein_reps]
     protein_reps_padded = pad_sequence(protein_reps,batch_first=True,padding_value=0)
@@ -71,21 +73,52 @@ def MAC_collate_fn(batch):
             "pfam": pfam
             }
 
-def MAP_collate_fn(batch):
+def MAP_collate_fn(batch, is_training):
     vocab_size = 138
-    labels, biosyn_class, protein_reps, sub, is_product, length, structure, gene_kind, pfam = zip(*batch)
+
+    if is_training:
+      # Randomly sample new negative pairs
+      new_batch = []
+      pos_indices = [i for i,item in enumerate(batch) if item[4] == 1]
+      neg_indices = [i for i,item in enumerate(batch) if item[4] == 0]
+      used_neg_indices = set()
+      for pos_idx in pos_indices:
+        available_negs = [i for i in neg_indices if i not in used_neg_indices]
+        if not available_negs:
+          break
+        
+        selected_neg_idx = random.choice(available_negs)
+
+        pos_item = batch[pos_idx]
+        neg_item = batch[selected_neg_idx]
+        
+        if torch.equal(pos_item[3], neg_item[3]):
+          continue
+        used_neg_indices.add(selected_neg_idx)
+        new_item = pos_item[:3] + neg_item[3:5]+ pos_item[5:]
+        new_batch.append(tuple(new_item))
+
+      remained_indices = [i for i in range(len(batch)) 
+                        if i not in used_neg_indices]
+      final_batch = [batch[i] for i in remained_indices] + new_batch
+    
+    final_batch = batch
+    labels, biosyn_class, protein_reps, sub, is_product, length, structure, gene_kind, pfam = zip(*final_batch)
+    # seq: 1280dim tensor
+    # protein_reps: [B, N_BGC, 1280]
     protein_reps = [torch.stack(seq) for seq in protein_reps]
-    protein_reps_padded=pad_sequence(protein_reps,batch_first=True,padding_value=0)
+    protein_reps_padded=pad_sequence(protein_reps, batch_first=True, padding_value=0)
     protein_mask=(protein_reps_padded==0).any(dim=-1) #padding mask
-    sub_padded=pad_sequence(sub,batch_first=True, padding_value = vocab_size)
+    sub_padded=pad_sequence(sub, batch_first=True, padding_value = vocab_size)
     sub_mask=(sub_padded == vocab_size)
     structure_padded = None
     is_product = torch.tensor(is_product).float()
     if None not in structure:
       structure = [torch.stack(struct) for struct in structure]
       structure_padded = pad_sequence(structure, batch_first=True, padding_value=0)
+
     return {
-      "labels": labels,                    
+      "labels": labels,    # BGC_number                
       "biosyn_class": biosyn_class,        
       "protein_reps_padded": protein_reps_padded,  
       "sub_padded": sub_padded,         
@@ -109,11 +142,11 @@ def generate_leave_out(BGC_data, biosyn_class, train_frac, config):
   val_data = leave_out_data[train_size:]
 
   test_dataset = MAPDataset.from_df(test_data, config.use_structure)
-  test_dataloader=DataLoader(test_dataset, batch_size = config.test_bsz, collate_fn=collate_fn)
+  test_dataloader=DataLoader(test_dataset, batch_size = config.test_bsz, collate_fn=partial(collate_fn, is_training = False))
   train_dataset = MAPDataset.from_df(train_data, config.use_structure)
   val_dataset = MAPDataset.from_df(val_data, config.use_structure)
-  train_dataloader = DataLoader(train_dataset, batch_size = config.train_bsz, shuffle = True, collate_fn = collate_fn)
-  val_dataloader = DataLoader(val_dataset, batch_size = config.validation_bsz, collate_fn = collate_fn)
+  train_dataloader = DataLoader(train_dataset, batch_size = config.train_bsz, shuffle = True, collate_fn = partial(collate_fn, is_training = False))
+  val_dataloader = DataLoader(val_dataset, batch_size = config.validation_bsz, collate_fn = partial(collate_fn, is_training = False))
   dataloaders=[test_dataloader,{
         'train': train_dataloader,
         'val': val_dataloader,

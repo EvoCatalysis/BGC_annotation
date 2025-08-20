@@ -13,3 +13,6 @@ ESM2_reps: data/BGC_4.0/Esm2_rep_mibig.pth
 pfam_data: data/BGC_4.0/BGC_domain_pfam.pkl
 gene_kind_data: data/BGC_4.0/BGC_gene_kind.pkl
 seed: 42
+
+inference:
+  cache_dir: experiment/${now:%Y-%m-%d}_${now:%H-%M}

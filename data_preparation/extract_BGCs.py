@@ -15,9 +15,43 @@ from omegaconf import DictConfig
 import re
 from pathlib import Path
 from BGC import Bgc
+from rdkit import Chem
 from data_utils import generate_negatives
 
 PROJECT_DIR = Path(__file__).resolve().parent.parent
+
+
+def canonize_smiles(smiles):
+    mol = Chem.MolFromSmiles(smiles)
+    canonical_smiles = Chem.MolToSmiles(mol)
+    return canonical_smiles
+
+def generate_new_negatives(df, num_negatives = 2):
+    positive_samples = df[df['is_product'] == 1]
+    print("number of positive samples:", len(positive_samples))
+    new_samples = []
+    # create new negative for current positive
+    for _, pos_row in tqdm(positive_samples.iterrows(), desc = "generating negatives from mibig"):
+        current_bgc = pos_row['BGC_number']
+        
+        other_bgc_rows = positive_samples[positive_samples['BGC_number'] != current_bgc]
+                    
+        selected_negatives = other_bgc_rows.sample(n=num_negatives, replace=len(other_bgc_rows) < num_negatives)
+        
+        for _, neg_row in selected_negatives.iterrows():
+            new_sample = {
+                'BGC_number': current_bgc,
+                'product': neg_row['product'],
+                'biosyn_class': pos_row['biosyn_class'],
+                'enzyme_list': pos_row['enzyme_list'],
+                'is_product': 0
+            }
+            new_samples.append(new_sample)
+    
+    new_df = pd.concat([df, pd.DataFrame(new_samples)], ignore_index=True)
+    
+    return new_df
+
 
 def list_files(directory): 
     file_paths = []  
@@ -171,7 +205,7 @@ def create_map_dataset(BGC_data: pd.DataFrame, BGC_data_cleaned: pd.DataFrame,
     data_nostructure = data_nostructure.drop_duplicates(subset="BGC_number")
     data_nostructure["is_product"] = 0
     
-    # Sample from COCONUT
+    # Sample 3 negatives from COCONUT
     sampled_NP = random.sample(coconut_fps, len(data_nostructure) * 4)
     random_sample = pd.concat([data_nostructure, data_nostructure.copy()], ignore_index=True)
     random_sample = pd.concat([random_sample, random_sample.copy()], ignore_index=True)
@@ -179,6 +213,14 @@ def create_map_dataset(BGC_data: pd.DataFrame, BGC_data_cleaned: pd.DataFrame,
     
     # Combine datasets
     MAP_dataset = pd.concat([BGC_data_cleaned, random_sample])
+
+    # Sample 2 negatives from mibig
+    MAP_dataset = generate_new_negatives(MAP_dataset, num_negatives=2)
+
+    # Canonize SMILES
+    MAP_dataset["product"] = MAP_dataset["product"].apply(canonize_smiles)
+
+    # Save metadata
     MAP_dataset.to_pickle(os.path.join(output_dir, "MAP_metadata.pkl"))
     
     return MAP_dataset

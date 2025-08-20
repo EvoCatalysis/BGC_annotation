@@ -9,7 +9,7 @@ from omegaconf import OmegaConf
 from collections import Counter
 import pickle
 
-from trainer import initialize, f1_cal, precision_cal, recall_cal, auc_cal, MACTrainer, MAPTrainer, move_to_device
+from experiment.trainer import initialize, f1_cal, precision_cal, recall_cal, auc_cal, MACTrainer, MAPTrainer, move_to_device
 from model.BGC_models import BGCClassifier, ProductMatching
 
 PROJECT_DIR = Path(__file__).resolve().parent.parent
@@ -49,13 +49,14 @@ def calculate_metrics(true: torch.Tensor, pred: torch.Tensor) -> dict:
     }
     return metrics
 
-def kensemble_validation(dataloaders, config, save_checkpoint=True, 
+def kensemble_validation(dataloaders:list, config, save_checkpoint=True, 
                          checkpoint_name=None, show_progress=True):
     """
     Ensemble validation function for both classifier and structure matching models.
     
     Args:
         dataloaders: List of dataloaders
+            [test_loader, {"train": train_loader, "val": val_loader}]
         config: Model configuration
         model_type: Either "classifier" or "structure_matching"
         save_checkpoint: Whether to save checkpoints
@@ -330,6 +331,7 @@ def kensemble_MAPtest(models:list, test_loader, ensemble_dir = None, average_cro
 
         if ensemble_dir is not None:
             pickle.dump(save_dict, open(os.path.join(ensemble_dir, "MAP_test_ensemble.pkl"), "wb"))
+            print(f"save metrics to {os.path.join(ensemble_dir, 'MAP_test_ensemble.pkl')}")
         return save_dict
     else:
         for i in range(all_preds.size(0)):
@@ -349,6 +351,7 @@ def kensemble_MAPtest(models:list, test_loader, ensemble_dir = None, average_cro
 
         if ensemble_dir is not None:
             pickle.dump(save_dict, open(os.path.join(ensemble_dir, "MAP_test_individual.pkl"), "wb"))
+            print(f"save metrics to {os.path.join(ensemble_dir, 'MAP_test_individual.pkl')}")
         return save_dict
     
 def predict_MAC(models:list, predict_loader) ->tuple[np.array, list[np.array], list[list[np.array]]]:
@@ -375,7 +378,9 @@ def predict_MAC(models:list, predict_loader) ->tuple[np.array, list[np.array], l
             all_preds = torch.cat([all_preds, torch.stack(batch_pred)], dim = 1) #all_preds: [9, B, 6]
             mean_batch_attn_weight = torch.mean(torch.stack(batch_attn_weight), dim=0)
             mean_attn_weight.append(mean_batch_attn_weight.cpu().numpy())
-            all_preds = torch.sigmoid(all_preds).cpu().numpy()
+        
+        all_preds = torch.sigmoid(all_preds).cpu().numpy()
+    
     return all_preds, mean_attn_weight, all_attn_weight
 
 def predict_MAP(models:list, predict_loader) -> tuple[np.array, list[np.array], list[list[np.array]]]:
@@ -400,7 +405,10 @@ def predict_MAP(models:list, predict_loader) -> tuple[np.array, list[np.array], 
                 batch_pred.append(output)
                 all_attn_weight[i].append(cross_attn_weight.cpu().numpy())
                 batch_attn_weight.append(cross_attn_weight)
-            all_preds = torch.cat([all_preds, torch.stack(batch_pred)], dim = 1) #all_preds: [9, B, 1]
+            # [9, B, 1]
+            all_preds = torch.cat([all_preds, torch.stack(batch_pred)], dim = 1) 
             mean_attn_weight.append(torch.stack(batch_attn_weight).mean(dim = 0).cpu().numpy())
-            all_preds = torch.sigmoid(all_preds).cpu().numpy()
+        
+        # [9, B, 1]
+        all_preds = torch.sigmoid(all_preds).cpu().numpy()
     return all_preds, mean_attn_weight, all_attn_weight

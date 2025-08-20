@@ -24,7 +24,12 @@ logs/
 experiment/runs
 *.slurm
 visualization/
+paper/
+discussion/
 *.xlsx
+*.sh
+*.err
+*.out
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

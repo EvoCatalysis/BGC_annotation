@@ -3,7 +3,7 @@ import torch
 class BaseDataset(object):
     def __init__(self, BGCs, biosyn_class, pros, gene_kind, pfam, structure=None):
         self.BGCs = list(BGCs)
-        self.length = [len(x) for x in pros] 
+        self.length = [len(x) for x in pros] #BGC_length 
         self.pros = list(pros)
         self.biosyn_class = list(biosyn_class)
         self.gene_kind = list(gene_kind) if gene_kind is not None else None

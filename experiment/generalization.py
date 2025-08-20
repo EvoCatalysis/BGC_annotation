@@ -14,7 +14,7 @@ class_dataloaders = { 'NRPS':[], 'other': [], 'PKS':[], 'ribosomal': [], 'saccha
 
 if __name__ == "__main__":
     all_metrics = {}
-    device = "cuda:1" if torch.cuda.is_available() else "cpu"
+    device = "cuda:0" if torch.cuda.is_available() else "cpu"
     with hydra.initialize(config_path =  os.path.join("..", "configs"), 
                           version_base="1.2"): 
         cfg = hydra.compose(config_name = "dataset", overrides=[f"BGC_MAP.device={device}"] )
@@ -30,17 +30,25 @@ if __name__ == "__main__":
               len(class_dataloaders[biosyn_class][1]["train"].dataset),
               len(class_dataloaders[biosyn_class][1]["val"].dataset),
               len(class_dataloaders[biosyn_class][0].dataset))
-    
+        
+    """
     for biosyn_class in class_dataloaders:
+        testname = os.path.basename(cfg.MAP_metadata).split(".")[0]
         print(f"training_{biosyn_class}")
         kensemble_validation(class_dataloaders[biosyn_class], 
                              model_cfg, 
                              save_checkpoint = True, 
-                             checkpoint_name = f"leave_out_{biosyn_class}")
-    
+                             checkpoint_name = f"leave_out_{biosyn_class}_{testname}"
+                             )
+    """
+
     for biosyn_class in class_dataloaders:
-        checkpoint_path = os.path.join(PROJECT_DIR, model_cfg.checkpoint_dir, f"leave_out_{biosyn_class}")
-        ckpt = torch.load(os.path.join(checkpoint_path, f"leave_out_{biosyn_class}.ckpt"),weights_only = False)
+        testname = os.path.basename(cfg.MAP_metadata).split(".")[0]
+        checkpoint_path = os.path.join(PROJECT_DIR, model_cfg.checkpoint_dir, f"leave_out_{biosyn_class}_{testname}")
+        ckpt = torch.load(os.path.join(checkpoint_path, 
+                                       f"leave_out_{biosyn_class}_{testname}.ckpt"), 
+                                       weights_only = False, 
+                                       map_location=device)
         ensemble_model = generate_ensemblelist(ckpt)
         test_results = kensemble_MAPtest(ensemble_model, 
                                         class_dataloaders[biosyn_class][0], 

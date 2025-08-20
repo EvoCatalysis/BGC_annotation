@@ -2,17 +2,18 @@ import pickle
 import pandas as pd
 import os
 import torch
-from dataloaders import generate_kfold
-from ensemble_utils import kensemble_validation
+from experiment.dataloaders import generate_kfold
+from experiment.ensemble_utils import kensemble_validation
 import hydra
 from pathlib import Path
 import re
 import argparse
 from datetime import datetime
 
-PROJECT_DIR = Path(__file__).resolve().parent.parent  # 链式调用 parent
+PROJECT_DIR = Path(__file__).resolve().parent.parent
 
-def pfam_preprocess(pfam_list) -> list: #[[(pfam_num,pfam_name,E-value),()],[]]->[(pfam_name1,pfam_name2),(),]
+def pfam_preprocess(pfam_list) -> list: 
+    #[[(pfam_num,pfam_name,E-value),()],[]]->[(pfam_name1,pfam_name2),(),]
     def process_element(element):
         if isinstance(element, list): #[(),(),]->()
             return tuple(triple[1] for triple in element)
@@ -77,7 +78,11 @@ def df_preprocess(cfg, task, *dfs):
 
 
 if __name__ == "__main__":
-    device = "cuda:2" if torch.cuda.is_available() else "cpu"
+    print(f"Available CUDA devices: {torch.cuda.device_count()}")
+    for i in range(torch.cuda.device_count()):
+        print(f"Device {i}: {torch.cuda.get_device_name(i)}")
+
+    device = "cuda:0" if torch.cuda.is_available() else "cpu"
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", default="MAC", help="Model type")
     args, _ = parser.parse_known_args()  
@@ -97,17 +102,20 @@ if __name__ == "__main__":
     if args.model == "MAC":
         model_cfg = cfg.BGC_MAC
         BGC_data = pd.read_pickle(os.path.join(PROJECT_DIR, cfg.MAC_metadata))
+        test_name = os.path.basename(cfg.MAC_metadata).split(".")[0]
+
     elif args.model == "MAP":
         model_cfg = cfg.BGC_MAP
         BGC_data = pd.read_pickle(os.path.join(PROJECT_DIR, cfg.MAP_metadata))
+        test_name = os.path.basename(cfg.MAP_metadata).split(".")[0]
     print(model_cfg.device)
     #process dataframe
     print("begin processing dataframe")
     BGC_data = df_preprocess(cfg, model_cfg.task, BGC_data)
-    print(len(BGC_data))
+    print(f"dataset length: {len(BGC_data)}")
     #load configuration
     print("begin generating kfold")
     dataloaders, test_data, val_trues = generate_kfold(9, BGC_data, model_cfg.data)
-    #test_data.to_pickle(os.path.join(PROJECT_DIR, model_cfg.checkpoint_dir, f"test_{model_cfg.data.task}_{model_cfg.data.random_seed}.pkl"))
+    test_data.to_pickle(os.path.join(PROJECT_DIR, model_cfg.checkpoint_dir, f"test_{test_name}_{model_cfg.data.random_seed}.pkl"))
     ckpt = kensemble_validation(dataloaders, model_cfg, save_checkpoint = True, checkpoint_name = args.ckpt)
     print(ckpt["best_val_metric"])

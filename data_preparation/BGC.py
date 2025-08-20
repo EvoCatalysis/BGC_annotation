@@ -55,7 +55,7 @@ class Bgc:
         elif database=="antismash":
             self.bgc_number = ".".join(filename.split(".")[:3])
         elif database=="new":
-            self.bgc_number = os.path.basename(gbk).split(".")[0]
+            self.bgc_number = ".".join(filename.split(".")[:-1])
             if product is not None:
                 self.product = [Natural_product(None, None, smile) for smile in product]
             else:

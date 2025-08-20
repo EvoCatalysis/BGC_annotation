@@ -38,6 +38,7 @@ def initialize(config):
         raise ValueError(f"Unknown task: {config.task}")
     optimizer = torch.optim.Adam(model.parameters(), lr=float(config.optimizer.lr), betas=(0.9, 0.98), eps=1e-9, weight_decay=1e-4)
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 1.0, gamma=0.95)
+    print(config.device)
     model = model.to(config.device)
     return criterion, model, optimizer, scheduler
 
@@ -247,7 +248,7 @@ class BaseTrainer:
         for epoch in tqdm(range(self.epochs), desc='Epochs', disable=not show_progress):
             train_metrics = self.train()
             val_metrics, pred = self.validate()
-            #print("epoch:",epoch, "validation metrics",val_metrics)
+            print("epoch:",epoch, "validation metrics",val_metrics)
             train_loss, validation_loss = train_metrics["avg_train_loss"], val_metrics["avg_val_loss"]
             
             self.writer.add_scalar('loss/train_loss', train_loss, epoch)
@@ -397,6 +398,7 @@ class MACTrainer(BaseTrainer):
         metrics["origin_val_loss"] =  torch.sum(val_loss_per_class) / true.shape[0]
         metrics["mean_weights"] = mean_weights
         metrics.update(self.calculate_metrics(true, pred))
+
         return metrics, pred
 
 class MAPTrainer(BaseTrainer):

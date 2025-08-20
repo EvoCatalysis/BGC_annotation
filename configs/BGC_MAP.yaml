@@ -2,7 +2,7 @@ BGC_MAP:
   config_dir: "config"
   log_dir: "logs/BGC_MAP"
   checkpoint_dir: "ckpt/BGC_MAP"
-  device: "cpu"
+  device: "cuda:0"
   epochs: 30
   patience: 5
   task: "product_matching"
@@ -10,7 +10,7 @@ BGC_MAP:
   leave_out:
     test_ratio: 0.85
     metric_path: "ckpt/BGC_MAP/leave_out_metrics.pkl"
-    
+  
   data: 
     task: ${BGC_MAP.task}
     use_structure: 0
@@ -19,6 +19,7 @@ BGC_MAP:
     train_bsz: 16
     validation_bsz: 16
     test_bsz: 16
+    random_batch: True
 
   model_parameters:
     esm_size: 1280
@@ -45,7 +46,7 @@ BGC_MAP:
     threshold: 0.5
 
   BCEWithLogitsLoss:
-    pos_weights: 1.0
+    pos_weights: 3
   FocalLoss:
     pos_weights: 0.65
     gamma: 1
