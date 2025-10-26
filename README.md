@@ -6,7 +6,8 @@
         <img src="https://img.shields.io/badge/Python-3.11-blue.svg" /></a>
        <a href= "https://pytorch.org/">
         <img src="https://img.shields.io/badge/PyTorch-2.6-orange.svg" /></a>
-
+      <a href= "https://doi.org/10.5281/zenodo.15206672">
+        <img src="https://zenodo.org/badge/DOI/10.5281/zenodo.15206672.svg" /></a>
 </p>
 
 ## Setup
@@ -20,7 +21,7 @@
 ```
 ## Reproducing Results
 ### Data Preprocessing (optional)
-Training data and checkpoint files can be downloaded at [Zenodo](https://zenodo.org/records/15206672?preview=1&token=eyJhbGciOiJIUzUxMiJ9.eyJpZCI6ImY0ZTg2YTA0LWJkN2UtNGQxYi05NmQxLTNkYTQwYzcyZjcyMSIsImRhdGEiOnt9LCJyYW5kb20iOiJhYzc1YjhlMzE1MWEyMTU2N2NmZTUzYzdhNDU0YzZkYyJ9.-GQz8GN03tDiiII3M06pFanYo9CTaPxEml1RhGIg2Ttgsir1cjX4FzaSKWy5WLuasc_sGozUmMafArCceWb1hw) .
+Training data and checkpoint files can be downloaded at [Zenodo](https://zenodo.org/records/15206672) .
 1. Download MIBiG raw data
 ```bash
 wget https://dl.secondarymetabolites.org/mibig/mibig_json_4.0.tar.gz
