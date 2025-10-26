@@ -27,8 +27,8 @@ if __name__ == "__main__":
                           version_base="1.2"): 
         cfg = hydra.compose(config_name = "dataset", overrides=[f"BGC_{args.model}.device={device}"] )
 
-    test_name = os.path.basename(cfg.MAP_metadata).split(".")[0] 
     if args.model == "MAC":
+        test_name = os.path.basename(cfg.MAC_metadata).split(".")[0] 
         model_cfg = cfg.BGC_MAC
         checkpoint_path = os.path.join(PROJECT_DIR, model_cfg.checkpoint_dir, args.ckpt)
         # test_MAC_metadata_43.pkl
@@ -36,11 +36,12 @@ if __name__ == "__main__":
         test_dataset = MACDataset.from_df(test_data, model_cfg.data.use_structure)
         test_loader = DataLoader(test_dataset, batch_size=model_cfg.data.test_bsz, collate_fn=partial(MAC_collate_fn, is_training = False))
         ckpt = torch.load(os.path.join(checkpoint_path, f"{args.ckpt}.ckpt"), weights_only=False)
-        print(f"load ckpt from {os.path.join(checkpoint_path, f"{args.ckpt}.ckpt")}")
+        print(f"load ckpt from {os.path.join(checkpoint_path, f'{args.ckpt}.ckpt')}")
         ensemble_model = generate_ensemblelist(ckpt)
         test_results = kensemble_MACtest(ensemble_model, test_loader, checkpoint_path, mean_result = args.mean_result)
         print(test_results["metrics"])
     elif args.model == "MAP":
+        test_name = os.path.basename(cfg.MAP_metadata).split(".")[0] 
         model_cfg = cfg.BGC_MAP
         checkpoint_path = os.path.join(PROJECT_DIR, model_cfg.checkpoint_dir, args.ckpt)
         test_data = pd.read_pickle(os.path.join(PROJECT_DIR, model_cfg.checkpoint_dir, f"test_{test_name}_{model_cfg.data.random_seed}.pkl"))
@@ -51,7 +52,7 @@ if __name__ == "__main__":
                                   collate_fn=partial(MAP_collate_fn, is_training = False))
         # test_MAP_metadata_42.pkl
         ckpt = torch.load(os.path.join(checkpoint_path, f"{args.ckpt}.ckpt"), weights_only=False)
-        print(f"load ckpt from {os.path.join(checkpoint_path, f"{args.ckpt}.ckpt")}")
+        print(f"load ckpt from {os.path.join(checkpoint_path, f'{args.ckpt}.ckpt')}")
         ensemble_model = generate_ensemblelist(ckpt)
         test_results = kensemble_MAPtest(models = ensemble_model, 
                                          test_loader = test_loader, 

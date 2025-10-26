@@ -44,7 +44,7 @@ def generate_kfold(k, data, config):
     train_dataloader = DataLoader(train_dataset, 
                                   batch_size = config.train_bsz, 
                                   shuffle = True, 
-                                  collate_fn = partial(collate_fn, is_training = config.random_batch))
+                                  collate_fn = partial(collate_fn, is_training = True))
     val_dataloader = DataLoader(val_dataset, 
                                 batch_size = config.validation_bsz, 
                                 collate_fn = partial(collate_fn, is_training = False))
@@ -142,7 +142,6 @@ def generate_leave_out(BGC_data, biosyn_class, train_frac, config):
   leave_out_data=BGC_data[BGC_data["biosyn_class"].apply(lambda x:biosyn_class not in x)]
   leave_out_data=leave_out_data.sample(frac=1,random_state=42).reset_index(drop=True)
   train_size = int(train_frac * len(leave_out_data))
-  val_size = len(leave_out_data)-train_size
   train_data = leave_out_data[:train_size]
   val_data = leave_out_data[train_size:]
 

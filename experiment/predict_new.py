@@ -2,6 +2,7 @@ import torch
 from pathlib import Path
 from torch.utils.data import DataLoader
 from typing import Union, List
+import itertools
 
 from tqdm import tqdm
 import os
@@ -22,8 +23,14 @@ from data_preparation.esm2_emb_cal import generate_embedding
 from rdkit import Chem
 from functools import partial
 
+os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 PROJECT_DIR = Path(__file__).resolve().parent.parent
 biosyn_class =['NRP', 'Other', 'Polyketdie', 'RiPP', 'Saccharide', 'Terpene']
+
+def get_ranking_input(gbk:list, smiles:list)->tuple[list,list]:
+    grouped_smiles = [list(set(smiles)) for _ in gbk]  # Each bgc will query all the smiles
+    
+    return gbk, grouped_smiles
 
 def list_files(directory, ext = None): 
     file_paths = []  
@@ -60,26 +67,36 @@ def canonize_smiles(smiles):
     canonical_smiles = Chem.MolToSmiles(mol)
     return canonical_smiles
 
+
 if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() else "cpu"
     parser = argparse.ArgumentParser(description="Process BGC and natural product data")
     parser.add_argument("--model", default="MAC", help="Model type")
-    parser.add_argument("--ckpt", default="default", help="checkpoint dir name")
+    parser.add_argument("--ckpt", default="MAC_default", help="checkpoint dir name")
     parser.add_argument("--gbk", help="gbk file (dir or file name)")
     parser.add_argument("--smiles", default=None, help="smiles string or pickle file")
     parser.add_argument("--output", default="../output", help="output dir")
     parser.add_argument("--esm_cache", default=None, help= "cache path for esm embeddings")
+    parser.add_argument("--ranking", action='store_true')
     args = parser.parse_args()
-
     smiles = None
     if args.smiles is not None:
         args.model = "MAP"
-
+        
         if os.path.isfile(args.smiles):
             smiles = pickle.load(open(args.smiles, "rb"))
-            smiles = [[canonize_smiles(smi) for smi in smiles_list] for smiles_list in smiles]
+            if args.ranking:
+                assert all(isinstance(item, str) for item in smiles), \
+                    f"smiles list contain non string for ranking task: {[type(item) for item in smiles]}"   
+            else: #Just matching
+                smiles = [[canonize_smiles(smi) for smi in smiles_list] for smiles_list in smiles]
         else:
-            smiles = [[canonize_smiles(args.smiles)]]
+            if args.ranking:
+                smiles = [canonize_smiles(args.smiles)]
+            else:
+                smiles = [[canonize_smiles(args.smiles)]]
+    
+
 
     with hydra.initialize(config_path=os.path.join("..", "configs"),
                           version_base="1.2"):
@@ -94,9 +111,11 @@ if __name__ == "__main__":
         gbk_file = list_files(args.gbk, ext = "gbk")
         gbk_file.extend(list_files(args.gbk, ext = "gb"))
 
-    if len(smiles) == 1 and len(gbk_file) > 1:
-        smiles = smiles * len(gbk_file)
+    if args.ranking:
+        gbk_file, smiles = get_ranking_input(gbk_file, smiles)
+        
     BGC_data = extract_bgc(gbk_file, smiles = smiles)
+    # THIS STEP WILL SHUFFLE THE BGC ORDER
     BGC_number_deduplicate = (
         BGC_data.groupby("BGC_number")
         .agg({
@@ -108,7 +127,13 @@ if __name__ == "__main__":
 
     gbk_basename = os.path.basename(args.gbk)
     if args.esm_cache:
-        esm_rep = pickle.load(open(args.esm_cache, 'rb'))
+        try:
+            if args.esm_cache.endswith(".pkl"):
+                esm_rep = pickle.load(open(args.esm_cache, 'rb'))
+            else:
+                esm_rep = torch.load(args.esm_cache, weights_only= False)
+        except Exception as e:
+            print(f"An error {e} occurred in loading {args.esm_cache}")
         print(f"load cache from {args.esm_cache}")
     else:
         esm_rep = generate_embedding(BGC_number_deduplicate, os.path.join(PROJECT_DIR, "data", "esm2_t33_650M_UR50D.pt"))
@@ -116,13 +141,12 @@ if __name__ == "__main__":
     
         
     if args.model == "MAC":
-        BGC_data = BGC_number_deduplicate.copy()
         BGC_data["protein_rep"] = BGC_data["BGC_number"].map(esm_rep)
         model_cfg = cfg.BGC_MAC
         checkpoint_path = os.path.join(PROJECT_DIR, model_cfg.checkpoint_dir, args.ckpt)
         predict_dataset = MACDataset.from_df(BGC_data, model_cfg.data.use_structure)
         predict_loader = DataLoader(predict_dataset, batch_size=model_cfg.data.test_bsz, collate_fn=MAC_collate_fn)
-        ckpt = torch.load(os.path.join(checkpoint_path, f"{args.ckpt}.ckpt"), weights_only=False)
+        ckpt = torch.load(os.path.join(checkpoint_path, f"{args.ckpt}.ckpt"), weights_only=False, map_location=device)
         ensemble_model = generate_ensemblelist(ckpt)
         prediction = predict_MAC(ensemble_model, predict_loader)
         output_data = np.mean(prediction[0],axis=0) #(num_gbk, 6)
@@ -131,12 +155,13 @@ if __name__ == "__main__":
                  index=gbk_file, 
                  columns=biosyn_class).round(2)
         os.makedirs(args.output, exist_ok  =True)
-        output_path = os.path.join(args.output, f"{args.model}_{datetime.now().strftime('%Y-%m-%d_%H-%M')}.csv")
+        output_path = os.path.join(args.output, f"{args.model}_{gbk_basename.split('.')[0]}_{datetime.now().strftime('%Y-%m-%d_%H-%M')}.csv")
         df.to_csv(output_path, index=True)
         print(f"save output to: {output_path}")
 
     elif args.model == "MAP":
         BGC_data["protein_rep"] = BGC_data["BGC_number"].map(esm_rep)
+        del esm_rep
         assert None not in BGC_data["product"].tolist()
         BGC_data["product_index"] = BGC_data["product"].apply(get_smiles_index)
         model_cfg = cfg.BGC_MAP
@@ -161,11 +186,20 @@ if __name__ == "__main__":
         df.to_csv(output_path, index=True)
         print(f"save output to: {os.path.abspath(output_path)}")
     
-    #Example
+    # Table 2
+    # python predict_new.py --gbk ../data/ranking/BGC0001790 --ckpt MAP_2025-08-16_23-22-12 --smiles "C[C@H](C(=O)N[C@]1(CN(C1=O)S(=O)(=O)O)OC)NC(=O)CC[C@H](C(=O)O)N" --ranking --esm_cache ../data/esm_cache/BGC0001790_cache.pkl
+    # python predict_new.py --gbk ../data/ranking/BGC0000448 --ckpt MAP_2025-08-16_23-22-12 --smiles "COC1NC2=C(C=C(OC)C(O)=C2)C(=O)N2CC(CC12)=CC" --ranking --esm_cache ../data/esm_cache/BGC0000448_cache.pkl
+    # python predict_new.py --gbk ../data/ranking/BGC0002209 --ckpt MAP_2025-08-16_23-22-12 --smiles "COC1=C(CO)C(O)=C(C=O)C(CCO)=C1"
+    # python predict_new.py --gbk ../data/ranking/BGC0000693 --ckpt MAP_2025-08-16_23-22-12 --smiles "C1[C@@H]([C@H]([C@@H]([C@H]([C@@H]1NC(=O)[C@H](CCN)O)O)O[C@H]2[C@@H]([C@H]([C@H](O2)CO)O)O)O[C@@H]3[C@@H]([C@H]([C@@H]([C@H](O3)CN)O)O)N)N" --ranking --esm_cache ../data/esm_cache/BGC0000693_cache.pkl
+    # python predict_new.py --gbk ../data/ranking/BGC0001007 --ckpt MAP_2025-08-16_23-22-12 --smiles "NC1=C(N=C2)C(C2=CC(C(/C=C/OC)=O)=N3)=C3C(NC(C)=O)=C1"
 
-    # python predict_new.py --gbk ../data/ranking/BGC0001790 --ckpt MAP_2025-08-15_02-04-00 --smiles "C[C@H](C(=O)N[C@]1(CN(C1=O)S(=O)(=O)O)OC)NC(=O)CC[C@H](C(=O)O)N"
-    # python predict_new.py --gbk ../data/ranking/BGC0000448 --ckpt MAP_2025-08-15_02-04-00 --smiles "COC1NC2=C(C=C(OC)C(O)=C2)C(=O)N2CC(CC12)=CC"
-    # python predict_new.py --gbk ../data/ranking/BGC0002209 --ckpt MAP_2025-08-15_02-04-00 --smiles "COC1=C(CO)C(O)=C(C=O)C(CCO)=C1"
-    # python predict_new.py --gbk ../data/ranking/BGC0000693 --ckpt MAP_2025-08-15_02-04-00 --smiles "C1[C@@H]([C@H]([C@@H]([C@H]([C@@H]1NC(=O)[C@H](CCN)O)O)O[C@H]2[C@@H]([C@H]([C@H](O2)CO)O)O)O[C@@H]3[C@@H]([C@H]([C@@H]([C@H](O3)CN)O)O)N)N"
-    # python predict_new.py --gbk ../data/ranking/BGC0001007 --ckpt MAP_2025-08-15_02-04-00 --smiles "NC1=C(N=C2)C(C2=CC(C(/C=C/OC)=O)=N3)=C3C(NC(C)=O)=C1"
+    # NP atlas ranking: Ding, Table2, Table2-extra
+    # nohup python predict_new.py --gbk ../data/natural_product/test_table2 --ckpt MAP_2025-08-16_23-22-12  --smiles ../data/natural_product/NP_cluster_42_MAP_test.pkl --esm_cache ../data/BGC_4.0/Esm2_rep_mibig.pth --ranking > npatlas_ranking_1017.log 2>&1 &
+    # nohup python predict_new.py --gbk ../data/natural_product/DingBGC_test --ckpt MAP_2025-08-16_23-22-12  --smiles ../data/natural_product/NP_cluster_42_MAP_test_Ding4.pkl --esm_cache ../data/esm_cache/cache.pkl --ranking > npatlas_ranking_Ding.log 2>&1 &
+    # nohup python predict_new.py --gbk ../data/natural_product/test_table2_extra --ckpt MAP_2025-08-16_23-22-12  --smiles ../data/natural_product/NP_cluster_42_MAP_test.pkl --esm_cache ../data/BGC_4.0/Esm2_rep_mibig.pth --ranking > npatlas_ranking_extra.log 2>&1 &
 
+    # Ding's test on MIBiG
+    # nohup python predict_new.py --gbk ../data/mibig_gbk_4.0 --ckpt MAP_2025-08-16_23-22-12  --smiles ../data/natural_product/Ding_SMILES.pkl --esm_cache ../data/esm_cache/MIBIG_DING49.pkl --ranking > mibig_ranking_ding4.log 2>&1 &
+
+    # border problem
+    # nohup python predict_new.py --gbk ../data/border/candidate --ckpt MAC_2025-10-10_17-52-47 

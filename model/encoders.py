@@ -127,6 +127,7 @@ class BGCEncoder(nn.Module):
 
         return self_attn_output * ~mask[..., None]
 
+
 class SmilesEncoder(nn.Module):
     def __init__(self, 
                  attention_dim=512, 
@@ -157,3 +158,75 @@ class SmilesEncoder(nn.Module):
         self_attn_output = self.norm2(self_attn_output+residue)
 
         return self_attn_output * ~mask[..., None]
+    
+
+'''
+class TransformerBlock(nn.Module):
+    def __init__(self, attention_dim, num_heads, activation, dropout):
+        super(TransformerBlock, self).__init__()
+        self.self_attention = MultiheadAttentionWithROPE(
+            attention_dim, num_heads, dropout=dropout, batch_first=True
+        )
+        self.feedforward = FeedForward(attention_dim, attention_dim*2, activation, dropout)
+        self.norm1 = nn.LayerNorm(attention_dim)
+        self.norm2 = nn.LayerNorm(attention_dim)
+        self.dropout = nn.Dropout(dropout)
+        
+    def forward(self, x, structure, mask):
+        residual = x
+        attn_output, _ = self.self_attention(x, x, x, structure, key_padding_mask=mask)
+        attn_output = self.dropout(attn_output)
+        x = self.norm1(attn_output + residual)
+        x = x * ~mask[..., None] 
+        
+        residual = x
+        ff_output = self.feedforward(x)
+        ff_output = self.dropout(ff_output)
+        x = self.norm2(ff_output + residual)
+        x = x * ~mask[..., None] 
+        
+        return x
+
+class BGCEncoderNew(nn.Module):
+    def __init__(self, 
+                 esm_size=1280, 
+                 gearnet_size=3072, 
+                 attention_dim=512, 
+                 num_heads=8,
+                 activation=nn.GELU(), 
+                 dropout=0.3,
+                 num_layers=3): 
+        super(BGCEncoderNew, self).__init__()
+        self.attention_dim = attention_dim
+        self.num_heads = num_heads
+        self.activation = activation
+        self.num_layers = num_layers
+        
+        self.esm_projection = nn.Linear(esm_size, attention_dim)
+        self.gearnet_projection = nn.Linear(gearnet_size, attention_dim)
+        
+        self.layers = nn.ModuleList([
+            TransformerBlock(attention_dim, num_heads, activation, dropout)
+            for _ in range(num_layers)
+        ])
+    
+    
+        
+    def forward(self, pros, mask, structure=None):
+        ''''''
+        pros: (batch_size, sequence_length, input_dim)
+        structure:(batch_size, sequence_length, 3072)
+        mask: (batch, sequence_length)
+        ''''''
+        
+        pros = self.activation(self.esm_projection(pros)) * ~mask[..., None]
+        if structure is not None:
+            structure = self.activation(self.gearnet_projection(structure))
+        
+        x = pros
+        for layer in self.layers:
+            x = layer(x, structure, mask)
+        
+        return x
+
+    '''

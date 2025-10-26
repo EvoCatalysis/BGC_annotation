@@ -299,9 +299,9 @@ class MACTrainer(BaseTrainer):
         super().__init__(model, train_loader, val_loader, optimizer, scheduler, criterion, metrics, config, verbose)
         self.num_classes = config.model_parameters.num_classes
         self.class_dict = { 'NRP': 0, 'Other': 1, 'Polyketide': 2, 'RiPPs': 3, 'Saccharide': 4, 'Terpene': 5}
-        fc_weight = self.model.fc.weight
         self.freeze = config.GradNorm.freeze
         if not self.freeze:
+            fc_weight = self.model.fc.weight
             self.grad_norm_weighter = GradNormLossWeighter(
                 num_losses=self.num_classes,
                 learning_rate=float(config.GradNorm.lr),
@@ -330,7 +330,6 @@ class MACTrainer(BaseTrainer):
         loss_weights = torch.empty((0,6), device=self.device)
 
         for batch in self.train_loader:  
-            total_batch_train_loss = 0.0
             biosyn_class, pro, pro_mask, structure, class_token = move_to_device(self.config, 
                                                                                  batch["biosyn_class"], 
                                                                                  batch["protein_reps_padded"], 

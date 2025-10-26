@@ -1,5 +1,5 @@
-import torch
 import torch.nn as nn
+import torch
 
 from model.encoders import FeedForward, BGCEncoder, SmilesEncoder
 
@@ -12,6 +12,7 @@ class BGCClassifier(nn.Module):
                  num_heads = 8, 
                  dropout = 0.3):
         super().__init__()
+        self.num_classes = num_classes
 
         self.activation = nn.GELU()
         self.BGCEncoder = BGCEncoder(esm_size, gearnet_size, attention_dim, num_heads, self.activation, dropout)
@@ -20,8 +21,11 @@ class BGCClassifier(nn.Module):
         self.feedforward = FeedForward(attention_dim, attention_dim * 2, self.activation, dropout)
         self.norm1 = nn.LayerNorm(attention_dim)
         self.norm2 = nn.LayerNorm(attention_dim)
-        self.fc = nn.Linear(attention_dim, 1)
-
+        #self.fc = nn.Linear(attention_dim, 1)
+        self.fcs = nn.ModuleList([
+            nn.Linear(attention_dim, 1) for _ in range(num_classes)
+        ])
+        
     def forward(self, pros, class_indices, mask, structure = None):
         '''
         Args:
@@ -36,17 +40,26 @@ class BGCClassifier(nn.Module):
         # (batch_size, len_BGC, attention_dim)
         self_attn_output = self.BGCEncoder(pros, mask, structure)
         
-
         # cross attention: class_embedding (Query) to BGC embedding (Key and value)
         # cross_attn_weights: (batch_size, num_heads, q: num_classes, k: sequence_length)
         # cross_attn_output: (batch_size, num_classes, attention_dim)
-        cross_attn_output, cross_attn_weights = self.cross_attention(class_embeddings, self_attn_output, self_attn_output)
+        cross_attn_output, cross_attn_weights = self.cross_attention(class_embeddings, 
+                                                                     self_attn_output, 
+                                                                     self_attn_output,
+                                                                     key_padding_mask = mask)
         cross_attn_output = self.norm1(cross_attn_output + class_embeddings)
         ff_out = self.feedforward(cross_attn_output)
-        ff_out = self.norm2(cross_attn_output + ff_out)
+        ff_out = self.norm2(cross_attn_output + ff_out) #(batch_size, num_classes, attention_dim)
         
         # (batch_size, num_classes)
-        logits = self.fc(ff_out).squeeze(-1) 
+        #logits = self.fc(ff_out).squeeze(-1) 
+        logits_list = []
+        for i in range(self.num_classes):
+            class_embedding = ff_out[:, i, :]  # (batch_size, attention_dim)
+            logit = self.fcs[i](class_embedding) # (batch_size, 1)
+            logits_list.append(logit)
+
+        logits = torch.stack(logits_list, dim=1).squeeze(-1) # (batch_size, num_classes, 1)
 
         return logits, cross_attn_weights
 

@@ -1,5 +1,7 @@
 from Bio import SeqIO
 import os
+import json
+
 class Natural_product:
     def __init__(self,biosyn_class,name,smile,chem_act = None):
         self.name = name
@@ -44,34 +46,47 @@ class Domain:
 
 class Bgc:
     def __init__(self, gbk, json = None, database="mibig", product=None):
+        self.gbk = gbk
         filename = os.path.basename(gbk)
         self.database=database
-        self.enzyme_list=self.get_enzyme(gbk) 
+        self.enzyme_list, self.gene_number=self.parse_gbk() 
         if database=="mibig":
             if json is None:
                 raise ValueError("Please provide a JSON file for MIBiG database.")
-            self.product=self.get_product(json) 
+            self.json_data=self.parse_json(json)
+            self.product=self.get_product() 
             self.bgc_number = filename.split(".")[0]
         elif database=="antismash":
             self.bgc_number = ".".join(filename.split(".")[:3])
         elif database=="new":
             self.bgc_number = ".".join(filename.split(".")[:-1])
             if product is not None:
-                self.product = [Natural_product(None, None, smile) for smile in product]
+                self.product = [smile for smile in product]
             else:
-                self.product = [Natural_product(None, None, "")]
+                self.product = [None]
 
-    def get_product(self,filename): 
-        import json
-        result=[]
-        biosyn_class = []
+    def get_num_genes(self):
+        records = SeqIO.parse(self.gbk, "genbank")
+        count = 0
+        for record in records:
+            for feature in record.features:
+                if feature.type=="CDS":
+                    count += 1
+        return count
+    
+    def parse_json(self,filename): 
         with open(filename, "r") as file:
             json_text = file.read()
         data = json.loads(json_text)
-        compound_types = data["biosynthesis"]["classes"]
+        return data
+
+    def get_product(self):
+        result=[]
+        biosyn_class = []
+        compound_types = self.json_data["biosynthesis"]["classes"]
         for compound_type in compound_types:
             biosyn_class.append(compound_type["class"])
-        compounds = data["compounds"]
+        compounds = self.json_data["compounds"]
         for compound in compounds:
             chem_acts = []
             compound_name = compound["name"]
@@ -86,11 +101,21 @@ class Bgc:
                 pass  
             result.append(Natural_product(biosyn_class, compound_name, chem_struct, chem_acts))
         return result
-    
-    def get_enzyme(self,gbk_file): #extract enzyme information from gbk file
-        records = SeqIO.parse(gbk_file, "genbank")
+
+    def get_organism(self):
+        if self.database=="mibig":
+            return self.json_data["taxonomy"]["name"]
+        else:
+            records = SeqIO.parse(self.gbk, "genbank")
+            for record in records:
+                return record.annotations.get("organism", "Unknown")
+            
+    def parse_gbk(self) -> tuple[list, int]:
+        #extract information from gbk file
+        records = SeqIO.parse(self.gbk, "genbank")
         enzyme_list=[]
         first_domain=[]
+        gene_number = 0
         for record in records:
             if self.database=="antismash":
                 try:
@@ -99,6 +124,7 @@ class Bgc:
                     self.product="error"
             for feature in record.features:
                 if feature.type=="CDS":
+                    gene_number += 1
                     identifier={}
                     gene_functions,gene_kind=None,None
                     if feature.qualifiers.get("protein_id"):
@@ -129,7 +155,8 @@ class Bgc:
                         enzyme_list[-1].set_domain(name,label,locus_tag,nu_sequence,aa_sequence)
                     else:
                         first_domain=[name,label,locus_tag,nu_sequence,aa_sequence]
-        return enzyme_list
+        return enzyme_list, gene_number
+    
     def get_enzyme_list(self):
         enzyme_list=[]
         for enzymes in self.enzyme_list:
@@ -155,12 +182,13 @@ class Bgc:
                 for domains in enzymes.domain:
                     gene_kind.append(enzymes.gene_kind)
         return gene_kind
+    
     def get_info(self):
         enzyme_list=[pro.aa_sequence for pro in self.get_enzyme_list()]
         if self.database=="mibig":
             info = [[self.bgc_number,x.smile,x.biosyn_class,enzyme_list,1] for x in self.product]
         elif self.database=="new":
-            info = [[self.bgc_number, x.smile, None, enzyme_list, 0] for x in self.product]
+            info = [[self.bgc_number, x, None, enzyme_list, 0] for x in self.product]
         else:
             info = [[self.bgc_number,0,self.product,enzyme_list,0]] 
         return info
