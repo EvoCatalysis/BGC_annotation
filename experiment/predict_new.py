@@ -2,7 +2,6 @@ import torch
 from pathlib import Path
 from torch.utils.data import DataLoader
 from typing import Union, List
-import itertools
 
 from tqdm import tqdm
 import os
@@ -186,20 +185,3 @@ if __name__ == "__main__":
         df.to_csv(output_path, index=True)
         print(f"save output to: {os.path.abspath(output_path)}")
     
-    # Table 2
-    # python predict_new.py --gbk ../data/ranking/BGC0001790 --ckpt MAP_2025-08-16_23-22-12 --smiles "C[C@H](C(=O)N[C@]1(CN(C1=O)S(=O)(=O)O)OC)NC(=O)CC[C@H](C(=O)O)N" --ranking --esm_cache ../data/esm_cache/BGC0001790_cache.pkl
-    # python predict_new.py --gbk ../data/ranking/BGC0000448 --ckpt MAP_2025-08-16_23-22-12 --smiles "COC1NC2=C(C=C(OC)C(O)=C2)C(=O)N2CC(CC12)=CC" --ranking --esm_cache ../data/esm_cache/BGC0000448_cache.pkl
-    # python predict_new.py --gbk ../data/ranking/BGC0002209 --ckpt MAP_2025-08-16_23-22-12 --smiles "COC1=C(CO)C(O)=C(C=O)C(CCO)=C1"
-    # python predict_new.py --gbk ../data/ranking/BGC0000693 --ckpt MAP_2025-08-16_23-22-12 --smiles "C1[C@@H]([C@H]([C@@H]([C@H]([C@@H]1NC(=O)[C@H](CCN)O)O)O[C@H]2[C@@H]([C@H]([C@H](O2)CO)O)O)O[C@@H]3[C@@H]([C@H]([C@@H]([C@H](O3)CN)O)O)N)N" --ranking --esm_cache ../data/esm_cache/BGC0000693_cache.pkl
-    # python predict_new.py --gbk ../data/ranking/BGC0001007 --ckpt MAP_2025-08-16_23-22-12 --smiles "NC1=C(N=C2)C(C2=CC(C(/C=C/OC)=O)=N3)=C3C(NC(C)=O)=C1"
-
-    # NP atlas ranking: Ding, Table2, Table2-extra
-    # nohup python predict_new.py --gbk ../data/natural_product/test_table2 --ckpt MAP_2025-08-16_23-22-12  --smiles ../data/natural_product/NP_cluster_42_MAP_test.pkl --esm_cache ../data/BGC_4.0/Esm2_rep_mibig.pth --ranking > npatlas_ranking_1017.log 2>&1 &
-    # nohup python predict_new.py --gbk ../data/natural_product/DingBGC_test --ckpt MAP_2025-08-16_23-22-12  --smiles ../data/natural_product/NP_cluster_42_MAP_test_Ding4.pkl --esm_cache ../data/esm_cache/cache.pkl --ranking > npatlas_ranking_Ding.log 2>&1 &
-    # nohup python predict_new.py --gbk ../data/natural_product/test_table2_extra --ckpt MAP_2025-08-16_23-22-12  --smiles ../data/natural_product/NP_cluster_42_MAP_test.pkl --esm_cache ../data/BGC_4.0/Esm2_rep_mibig.pth --ranking > npatlas_ranking_extra.log 2>&1 &
-
-    # Ding's test on MIBiG
-    # nohup python predict_new.py --gbk ../data/mibig_gbk_4.0 --ckpt MAP_2025-08-16_23-22-12  --smiles ../data/natural_product/Ding_SMILES.pkl --esm_cache ../data/esm_cache/MIBIG_DING49.pkl --ranking > mibig_ranking_ding4.log 2>&1 &
-
-    # border problem
-    # nohup python predict_new.py --gbk ../data/border/candidate --ckpt MAC_2025-10-10_17-52-47 

@@ -9,7 +9,6 @@ wandb*.json
 **/*.csv
 **/*.fasta
 **/*.interface
-**/*.ipynb
 ckpt/
 *.code-workspace
 outputs/
@@ -23,9 +22,12 @@ envs/
 logs/
 experiment/runs
 *.slurm
-visualization/
-paper/
-discussion/
+visualization/figures
+visualization/json
+visualization/molecule
+visualization/supporting_figs
+visualization/table
+deprecated/
 *.xlsx
 *.sh
 *.err
