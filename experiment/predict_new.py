@@ -135,6 +135,7 @@ if __name__ == "__main__":
             print(f"An error {e} occurred in loading {args.esm_cache}")
         print(f"load cache from {args.esm_cache}")
     else:
+        print("begin to generate ESM2 embeddings...")
         esm_rep = generate_embedding(BGC_number_deduplicate, os.path.join(PROJECT_DIR, "data", "esm2_t33_650M_UR50D.pt"))
         pickle.dump(esm_rep, open(f'../data/esm_cache/{gbk_basename.split(".")[0]}_cache.pkl', 'wb'))
     
