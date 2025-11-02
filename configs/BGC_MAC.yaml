@@ -17,7 +17,7 @@ BGC_MAC:
     test_bsz: 16
 
   GradNorm:
-    freeze: 0
+    freeze: 1
     lr: 5e-3
 
   model_parameters:

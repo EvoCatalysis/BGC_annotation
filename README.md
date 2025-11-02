@@ -66,7 +66,7 @@ Ensure the path is `/data/Pfam-A.hmm`
 
 3. Download ESM2 weights (see Usage Instructions-Prerequisites part)
 
-4. Download `COCONUT_DB_absoluteSMILES.smi` 
+4. Download `COCONUT_DB_absoluteSMILES.smi` and place them in the `./data/natural_product` directory.
 
 5. Then run:
 
@@ -124,12 +124,13 @@ Run the notebook in `/visualization` directory to reproduce figures in the paper
 | MAC_test_individual.pkl | `\ckpt\MAC_default` |
 | MAP_test_ensemble.pkl | `\ckpt\MAP_default` |
 | MAP_test_individual.pkl | `\ckpt\MAP_default` |
-| antismash_annotation.zip | `\data` |
-| deepbgc.zip | `\data` |
+| antismash_annotation.zip | `\data\antismash_annotation` |
+| deepbgc.zip | `\data\deepbgc` |
 | NPatlas_ECFP.pkl | `\data\natural_product` |
 | knownclusterblast_MACtest_hits.csv | `\data\border` |
 | NPAtlas_download_2024_09.tsv | `\data\natural_product` |
 | output.zip | `\output` |
+| smiles.pkl | `\data` |
 
 
 ### Download GenBank File for fungi BGC and BGC border analysis
@@ -218,19 +219,24 @@ python predict_new.py --gbk ../data/example --smiles ../data/smiles.pkl
 
 5. BGC/Product ranking
 - BGC: Provide a single BGC GenBank file, or a directory path containing multiple BGC GenBank files
-- Product: Provide a SMILES string, or provide a pickle file contianing a list with several SMILES strings
+- Product: Provide a SMILES string, or provide a pickle file contianing a list with several SMILES strings.
+
+Example:
+```python
+smiles = ["C1=CC=CC=C1", "CCN"] # For ranking. Can save as pickle file.
+```
 
 
 ```bash
 cd experiment
-
+# You should replace example with your own file or directory
 # Single BGC query Product candidates
-python predict_new.py --gbk ../data/natural_product/test_table2/BGC0000448.gbk --ckpt MAP_default  --smiles ../data/natural_product/NP_cluster_42_MAP_test.pkl --esm_cache ../data/BGC_4.0/Esm2_rep_mibig.pth --ranking 
+python predict_new.py --gbk ../data/natural_product/example/BGC0000448.gbk --ckpt MAP_default  --smiles ../data/natural_product/smiles_example.pkl --esm_cache ../data/BGC_4.0/Esm2_rep_mibig.pth --ranking 
 
 # Single product query BGC candidates
-python predict_new.py --gbk ../data/genome_ranking/BGC0001790 --ckpt MAP_default --smiles "C[C@H](C(=O)N[C@]1(CN(C1=O)S(=O)(=O)O)OC)NC(=O)CC[C@H](C(=O)O)N" --ranking
+python predict_new.py --gbk ../data/example --ckpt MAP_default --smiles "C[C@H](C(=O)N[C@]1(CN(C1=O)S(=O)(=O)O)OC)NC(=O)CC[C@H](C(=O)O)N" --ranking
 # Multiple BGC query mutiple product candidates
-python predict_new.py --gbk ../data/natural_product/test_table2 --ckpt MAP_default  --smiles ../data/natural_product/NP_cluster_42_MAP_test.pkl --esm_cache ../data/BGC_4.0/Esm2_rep_mibig.pth --ranking
+python predict_new.py --gbk ../data/example --ckpt MAP_default  --smiles ../data/natural_product/smiles_example.pkl --esm_cache ../data/BGC_4.0/Esm2_rep_mibig.pth --ranking
 ```
 
 ### Using esm cache
