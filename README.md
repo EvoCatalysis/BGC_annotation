@@ -2,12 +2,18 @@
 # **BGC-MAC and BGC-MAP: Attention-Based Models for Accurate Classification and Product Matching of Biosynthetic Gene Clusters**
 
 <p align="center">
-      <a href="https://www.python.org/">
-        <img src="https://img.shields.io/badge/Python-3.11-blue.svg" /></a>
-       <a href= "https://pytorch.org/">
-        <img src="https://img.shields.io/badge/PyTorch-2.6-orange.svg" /></a>
-      <a href= "https://doi.org/10.5281/zenodo.17458129">
-        <img src="https://doi.org/10.5281/zenodo.17458129" /></a>
+  <a href="https://www.python.org/">
+    <img src="https://img.shields.io/badge/Python-3.11-blue.svg" />
+  </a>
+  <a href="https://pytorch.org/">
+    <img src="https://img.shields.io/badge/PyTorch-2.6-orange.svg" />
+  </a>
+  <a href="https://doi.org/10.5281/zenodo.17458129">
+    <img src="https://zenodo.org/badge/DOI/10.5281/zenodo.17458129.svg" />
+  </a>
+  <a href="https://doi.org/10.1021/acs.jcim.5c02082">
+    <img src="https://img.shields.io/badge/Paper-ACS_JCIM-green.svg" />
+  </a>
 </p>
 
 ## Setup
@@ -243,3 +249,17 @@ python predict_new.py --gbk ../data/example --ckpt MAP_default  --smiles ../data
 During inference, the script will compute ESM2-650M embeddings and save as pkl file in `data/cache` directory. When you run a large scale prediction for a second time, use `--esm_cache path_to_pkl_file` to load these embeddings.
 
 **Note:** Cache file is a dictionary, where key is the basename of GenBank File (without extension), and value is ESM embedding.
+
+## Citation
+```
+@article{lu2026bgc,
+  title={BGC-MAC and BGC-MAP: Attention-Based Models for Biosynthetic Gene Cluster Classification and Product Matching},
+  author={Lu, Kechen and Li, Mengting and Geng, Hao and Xu, Wenqiang and Chen, Manyun and Fu, Tian-Min and Luesch, Hendrik and Ding, Yousong and Xie, Wen Jun},
+  journal={Journal of Chemical Information and Modeling},
+  volume={66},
+  number={1},
+  pages={138--151},
+  year={2026},
+  doi={10.1021/acs.jcim.5c02082}
+}
+```
